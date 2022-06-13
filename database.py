@@ -63,7 +63,7 @@ def snpCount(db_name):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE totalCount")
+    # cursor.execute("DROP TABLE totalCount")
 
     # create new table
     sql_command = "CREATE TABLE IF NOT EXISTS totalCount (sequence_1_Contig text, total_count int); "
@@ -77,14 +77,14 @@ def snpCount(db_name):
 
     conn.close()
 
-snpCount("snps.db")
+# snpCount("snps.db")
 
 def uniqSnpCount(db_name):
     # establish connection to sqlite database
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE uniqCount")
+    # cursor.execute("DROP TABLE uniqCount")
 
     # create new table
     sql_command = "CREATE TABLE IF NOT EXISTS uniqCount (sequence_1_Contig text, uniq_count int); "
@@ -106,7 +106,7 @@ def totalVsUniqSnpCount(db_name):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE totalVsUniqCount")
+    # cursor.execute("DROP TABLE totalVsUniqCount")
 
     # create new table allVSuniq
     sql_command = "CREATE TABLE IF NOT EXISTS totalVsUniqCount (sequence_1_Contig text, " \
@@ -131,7 +131,7 @@ def totalVsUniqSnpCount(db_name):
 
     conn.close()
 
-totalVsUniqSnpCount("snps.db")
+# totalVsUniqSnpCount("snps.db")
 
 
 def ambiguousSnpCount(db_name):
