@@ -48,6 +48,11 @@ def filterUnambiguous(from_db_name):
                   "FROM snps GROUP BY SNP_pattern, sequence_2_GenWidePos2 HAVING c = 1;"
     cursor.execute(sql_command)
 
+    ambigBases = ['r', 'y', 's', 'w', 'k', 'm', 'b', 'd', 'h', 'v', 'n']
+    for base in ambigBases:
+        #sql_command = "DELETE FROM unambiguous WHERE SNP_pattern LIKE '%" + base + "%';"
+        cursor.execute(sql_command)
+
     # delete last column count in table unambiguous
     sql_command = "ALTER TABLE unambiguous DROP COLUMN count;"
     cursor.execute(sql_command)
@@ -56,7 +61,7 @@ def filterUnambiguous(from_db_name):
 
     conn.close()
 
-# filterUnambiguous("snps.db")
+#filterUnambiguous("snps.db")
 
 def snpCount(db_name):
     # establish connection to sqlite database
@@ -106,7 +111,7 @@ def totalVsUniqSnpCount(db_name):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    # cursor.execute("DROP TABLE totalVsUniqCount")
+    cursor.execute("DROP TABLE totalVsUniqCount")
 
     # create new table allVSuniq
     sql_command = "CREATE TABLE IF NOT EXISTS totalVsUniqCount (sequence_1_Contig text, " \
@@ -125,7 +130,12 @@ def totalVsUniqSnpCount(db_name):
     cursor.execute(sql_command)
     content = cursor.fetchall()
     print(content)
-    print(len(content))
+    print("Length of DB (should be 71): " + str(len(content)))
+
+    sql_command = "SELECT * FROM totalVsUniqCount WHERE uniq_snp_count > 1"
+    cursor.execute(sql_command)
+    content = cursor.fetchall()
+    print("Number of sequences without unique SNPs: " + str(len(content)))
 
     conn.commit()
 
