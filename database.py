@@ -8,7 +8,7 @@ def createDB(db_name, directory):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    # cursor.execute("DROP TABLE snps")
+    cursor.execute("DROP TABLE snps")
 
     sql_command = "CREATE TABLE IF NOT EXISTS snps ('SNP pattern' text, sequence_1_Contig text, sequence_1_PosInContg " \
                   "int, sequence_1_GenWidePos1 int, sequence_2_Contig text, sequence_2_PosInContg int, " \
@@ -23,7 +23,16 @@ def createDB(db_name, directory):
             with open(file) as tsvFile:
                 # insert snp file into database
                 pandas.read_csv(tsvFile, sep='\t').to_sql("snps", conn, index=False, if_exists='append')
+
+    # rename for easier access
     cursor.execute("ALTER TABLE snps RENAME COLUMN 'SNP pattern' TO SNP_pattern;")
+    # rename columns for readability
+    cursor.execute("ALTER TABLE snps RENAME COLUMN sequence_1_Contig TO sequence_name;")
+    cursor.execute("ALTER TABLE snps RENAME COLUMN sequence_1_PosInContg TO sequence_PosInContg;")
+    cursor.execute("ALTER TABLE snps RENAME COLUMN sequence_1_GenWidePos1 TO sequence_GenWidePos;")
+    cursor.execute("ALTER TABLE snps RENAME COLUMN sequence_2_Contig TO reference_name;")
+    cursor.execute("ALTER TABLE snps RENAME COLUMN sequence_2_PosInContg TO reference_PosInContg;")
+    cursor.execute("ALTER TABLE snps RENAME COLUMN sequence_2_GenWidePos2 TO reference_GenWidePos;")
 
     conn.commit()
 
@@ -36,46 +45,73 @@ def filterUnambiguous(from_db_name):
     conn = sqlite3.connect(from_db_name)
     cursor = conn.cursor()
 
-    # cursor.execute("DROP TABLE unambiguous")
+    cursor.execute("DROP TABLE unambiguous")
 
     # create new table unambiguous
-    sql_command = "CREATE TABLE IF NOT EXISTS unambiguous (SNP_pattern text, sequence_1_Contig text, " \
-                  "sequence_2_GenWidePos2 int, count int); "
+    sql_command = "CREATE TABLE IF NOT EXISTS unambiguous (SNP_pattern text, sequence_name text, " \
+                  "reference_GenWidePos int); "
     cursor.execute(sql_command)
 
     # copy all unambiguous entries from table snps into new table
-    sql_command = "INSERT INTO unambiguous SELECT SNP_pattern, sequence_1_Contig, sequence_2_GenWidePos2, COUNT(*) c " \
-                  "FROM snps GROUP BY SNP_pattern, sequence_2_GenWidePos2 HAVING c = 1;"
+    sql_command = "INSERT INTO unambiguous SELECT SNP_pattern, sequence_name, reference_GenWidePos FROM snps;"
     cursor.execute(sql_command)
 
     ambigBases = ['r', 'y', 's', 'w', 'k', 'm', 'b', 'd', 'h', 'v', 'n']
     for base in ambigBases:
-        #sql_command = "DELETE FROM unambiguous WHERE SNP_pattern LIKE '%" + base + "%';"
+        sql_command = "DELETE FROM unambiguous WHERE SNP_pattern LIKE '%" + base + "%';"
         cursor.execute(sql_command)
 
-    # delete last column count in table unambiguous
-    sql_command = "ALTER TABLE unambiguous DROP COLUMN count;"
+    conn.commit()
+
+    conn.close()
+
+filterUnambiguous("snps.db")
+
+def filterUnique(from_db_name):
+    # establish connection to sqlite database
+    conn = sqlite3.connect(from_db_name)
+    cursor = conn.cursor()
+
+    cursor.execute("DROP TABLE unique")
+
+    # create new table unique
+    sql_command = "CREATE TABLE IF NOT EXISTS unique (SNP_pattern text, sequence_name text, " \
+                  "reference_GenWidePos int, count int); "
+    cursor.execute(sql_command)
+
+    # copy all unique entries from table snps into new table
+    sql_command = "INSERT INTO unique SELECT SNP_pattern, sequence_name, reference_GenWidePos, COUNT(*) c " \
+                  "FROM snps GROUP BY SNP_pattern, reference_GenWidePos HAVING c = 1;"
+    cursor.execute(sql_command)
+
+    ambigBases = ['r', 'y', 's', 'w', 'k', 'm', 'b', 'd', 'h', 'v', 'n']
+    for base in ambigBases:
+        sql_command = "DELETE FROM unique WHERE SNP_pattern LIKE '%" + base + "%';"
+        cursor.execute(sql_command)
+
+    # delete last column count in table unique
+    sql_command = "ALTER TABLE unique DROP COLUMN count;"
     cursor.execute(sql_command)
 
     conn.commit()
 
     conn.close()
 
-#filterUnambiguous("snps.db")
+# filterUnique("snps.db")
 
 def snpCount(db_name):
     # establish connection to sqlite database
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    # cursor.execute("DROP TABLE totalCount")
+    cursor.execute("DROP TABLE totalCount")
 
     # create new table
-    sql_command = "CREATE TABLE IF NOT EXISTS totalCount (sequence_1_Contig text, total_count int); "
+    sql_command = "CREATE TABLE IF NOT EXISTS totalCount (sequence_name text, total_count int); "
     cursor.execute(sql_command)
 
-    sql_command = ("INSERT INTO totalCount SELECT sequence_1_Contig, COUNT(*) c FROM snps GROUP by sequence_1_Contig "
-                   "HAVING c > 0 ORDER BY sequence_1_Contig;")
+    sql_command = ("INSERT INTO totalCount SELECT sequence_name, COUNT(*) c FROM snps GROUP by sequence_name "
+                   "HAVING c > 0 ORDER BY sequence_name;")
     cursor.execute(sql_command)
 
     conn.commit()
@@ -92,12 +128,12 @@ def uniqSnpCount(db_name):
     # cursor.execute("DROP TABLE uniqCount")
 
     # create new table
-    sql_command = "CREATE TABLE IF NOT EXISTS uniqCount (sequence_1_Contig text, uniq_count int); "
+    sql_command = "CREATE TABLE IF NOT EXISTS uniqCount (sequence_name text, uniq_count int); "
     cursor.execute(sql_command)
 
-    sql_command = ("INSERT INTO uniqCount SELECT sequence_1_Contig, COUNT(*) c FROM unambiguous GROUP by "
-                   "sequence_1_Contig HAVING c > 0 "
-                   "ORDER BY sequence_1_Contig;")
+    sql_command = ("INSERT INTO uniqCount SELECT sequence_name, COUNT(*) c FROM unique GROUP by "
+                   "sequence_name HAVING c > 0 "
+                   "ORDER BY sequence_name;")
     cursor.execute(sql_command)
 
     conn.commit()
@@ -114,16 +150,16 @@ def totalVsUniqSnpCount(db_name):
     cursor.execute("DROP TABLE totalVsUniqCount")
 
     # create new table allVSuniq
-    sql_command = "CREATE TABLE IF NOT EXISTS totalVsUniqCount (sequence_1_Contig text, " \
+    sql_command = "CREATE TABLE IF NOT EXISTS totalVsUniqCount (sequence_name text, " \
                   "total_snp_count int, uniq_snp_count int); "
     cursor.execute(sql_command)
 
     # copy all counts into new table
-    sql_command = "INSERT INTO totalVsUniqCount (sequence_1_Contig, total_snp_count) SELECT * FROM totalCount;"
+    sql_command = "INSERT INTO totalVsUniqCount (sequence_name, total_snp_count) SELECT * FROM totalCount;"
     cursor.execute(sql_command)
 
     sql_command = "UPDATE totalVsUniqCount SET uniq_snp_count = uniqCount.uniq_count FROM uniqCount " \
-                  "WHERE totalVsUniqCount.sequence_1_Contig = uniqCount.sequence_1_Contig;"
+                  "WHERE totalVsUniqCount.sequence_name = uniqCount.sequence_name;"
     cursor.execute(sql_command)
 
     sql_command = "SELECT * FROM totalVsUniqCount"
@@ -135,47 +171,10 @@ def totalVsUniqSnpCount(db_name):
     sql_command = "SELECT * FROM totalVsUniqCount WHERE uniq_snp_count > 1"
     cursor.execute(sql_command)
     content = cursor.fetchall()
-    print("Number of sequences without unique SNPs: " + str(len(content)))
+    print("Number of sequences with unique SNPs: " + str(len(content)))
 
     conn.commit()
 
     conn.close()
 
 # totalVsUniqSnpCount("snps.db")
-
-
-def ambiguousSnpCount(db_name):
-    # establish connection to sqlite database
-    conn = sqlite3.connect(db_name)
-    cursor = conn.cursor()
-
-    cursor.execute("DROP TABLE ambiguousCount")
-
-    # create new table allVSuniq
-    sql_command = "CREATE TABLE IF NOT EXISTS ambiguousCount (sequence_1_Contig text, " \
-                  "total_count int, one_duplicate int, less_five_duplicates int, more_five_duplicates int); "
-    cursor.execute(sql_command)
-
-    sql_command = "INSERT INTO ambiguousCount (sequence_1_Contig, total_count) SELECT * FROM totalCount ORDER BY " \
-                  "sequence_1_Contig "
-    cursor.execute(sql_command)
-#############################################hier weiter
-
-    sql_command = "UPDATE ambiguousCount " \
-                  "SET one_duplicate = SELECT sequence_1_Contig FROM snps COUNT(*) c GROUP BY SNP_pattern, sequence_2_GenWidePos2 HAVING c = 2 "\
-                  "WHERE ambiguousCount.sequence_1_Contig = snps.sequence_1_Contig;"
-    cursor.execute(sql_command)
-
-
-    sql_command = "SELECT * FROM ambiguousCount"
-    cursor.execute(sql_command)
-    content = cursor.fetchall()
-    print(content)
-    print(len(content))
-
-    conn.commit()
-
-    conn.close()
-
-
-# ambiguousSnpCount("snps.db")
