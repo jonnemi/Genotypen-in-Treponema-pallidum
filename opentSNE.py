@@ -6,6 +6,7 @@ import pandas as pd
 import seaborn as sns
 
 from openTSNE import TSNE
+import dataProcess
 
 
 def encodeNuc(nuc):
@@ -20,56 +21,15 @@ class snpTSNE:
 
     def __init__(self, db_name):
         self.db_name = db_name
-        self.symb_numb = 6
         self.default_symb_enc = [0, 0, 0, 0, 1, 0]
 
-        # get tSNE input data from snp database
-        # establish connection to sqlite database
-        conn = sqlite3.connect(db_name)
-        cursor = conn.cursor()
-
-        # get all possible sequence_names aka types
-        sql_command = "SELECT DISTINCT sequence_name FROM unambiguous ORDER BY sequence_name;"
-        cursor.execute(sql_command)
-        content = cursor.fetchall()
-        self.sequence_names = list()
-        for seq in content:
-            self.sequence_names.append(seq[0])
-        self.seq_count = len(self.sequence_names)
-
-        # get all reference_GenWidePos for SNPs
-        sql_command = "SELECT DISTINCT reference_GenWidePos FROM unambiguous ORDER BY reference_GenWidePos;"
-        cursor.execute(sql_command)
-        content = cursor.fetchall()
-        self.positions = list()
-        for pos in content:
-            self.positions.append(pos[0])
-        self.pos_count = len(self.positions)
-
-        # create training vector of SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
-        reference_3D = np.full((1, self.pos_count, self.symb_numb), self.default_symb_enc)
-        train_3D = np.full((self.seq_count, self.pos_count, self.symb_numb), self.default_symb_enc)
-
-        for sequence in self.sequence_names:
-            # query SNP pattern and position from database
-            sql_command = "SELECT SNP_pattern, reference_GenWidePos FROM unambiguous WHERE unambiguous.sequence_name='" + str(sequence) + "' ORDER BY reference_GenWidePos;"
-            cursor.execute(sql_command)
-            snp_query = cursor.fetchall()
-
-            for entry in snp_query:
-                pos = self.positions.index(entry[1])
-                seq = self.sequence_names.index(sequence)
-                enc_entry = encodeNuc(entry[0][0])
-                train_3D[seq][pos] = enc_entry
-
-                reference_3D[0][pos] = encodeNuc(entry[0][1])
-        conn.close()
-
-        train_3D=np.append(train_3D, reference_3D, axis=0)
-
-        # reshape training vector from 3D to 2D
-        sample, position, one_hot_enc = train_3D.shape
-        train_2D = train_3D.reshape((sample,position*one_hot_enc))
+        self.SNPdf = dataProcess.getSNPdf(db_name)
+        self.ref_positions = self.SNPdf["Position"].unique().tolist()
+        self.ref_positions.sort()
+        self.sequence_names = self.SNPdf['Sequence_name'].unique().tolist()
+        self.sequence_names.sort()
+        self.sequence_names.append("Reference(NC_021490)")
+        train_2D = dataProcess.encDF(self.SNPdf, self.default_symb_enc, self.ref_positions)
 
         self.tsne = TSNE(
             perplexity=30,
@@ -79,9 +39,6 @@ class snpTSNE:
             verbose=True,
         )
         self.embedding_train = self.tsne.fit(train_2D)
-        self.labels = self.sequence_names.copy()
-        self.labels.append("Reference(NC_021490)")
-
 
     def embedQuery(self, tsvFile):
         if os.path.isfile(tsvFile):
@@ -125,7 +82,6 @@ class snpTSNE:
             nearest = self.sequence_names[min_index]
             print(nearest)
             return (eukl_dists)
-
 
     def multembedTSNE(self, tsvFile):
         if os.path.isfile(tsvFile):
@@ -188,12 +144,7 @@ class snpTSNE:
             ax.set_aspect('equal')
             ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
             fig.tight_layout()
-
-            print(tsne_result_df["Strain"])
             plt.show()
-
-
-
 
     def testDataTSNE(self, tsvFile):
         if os.path.isfile(tsvFile):
@@ -219,12 +170,11 @@ class snpTSNE:
                     p += 1
                 s += 1
 
-
             # reshape training vector from 3D to 2D
             sample, position, one_hot_enc = eval_3D.shape
             eval_2D = eval_3D.reshape((sample, position * one_hot_enc))
 
-            #embedding_eval = self.embedding_train.transform(eval_2D)
+            # embedding_eval = self.embedding_train.transform(eval_2D)
             embedding_eval = self.tsne.fit(eval_2D)
 
             # plot training tSNE
@@ -273,12 +223,56 @@ class snpTSNE:
             fig.tight_layout()
             plt.show()
 
+    def adaptTSNE(self, tsvFile):
+        if os.path.isfile(tsvFile):
+            query = pd.read_csv(tsvFile, sep='\t', header=1)
+        # create vector of SNPs, with field for each SNP site (reference_GenWidePos)
+        sample_names = list(query.columns)
+        sample_names.remove('Position')
+        sample_names.remove('Reference')
+
+        # find common SNP positions in reference database and query
+        query_pos = query.Position.tolist()
+        common_pos = list(set(map(str, self.ref_positions)).intersection(query_pos))
+        common_pos.sort(key=lambda pos: int(pos))
+
+        # remove all rows from dataframes that don't have common reference genome position for SNP
+        query = query[query['Position'].isin(common_pos)]
+        query['Position'] = pd.to_numeric(query['Position'])
+        query.reset_index()
+        common_pos = list(map(int, common_pos))
+        SNPdf = self.SNPdf[self.SNPdf['Position'].isin(common_pos)]
+        SNPdf.reset_index()
+
+        # create training vector of SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
+        train_2D = dataProcess.encDF(self.SNPdf, self.default_symb_enc, common_pos)
+        embedding_ADAtrain = self.tsne.fit(train_2D)
+
+        # create vector of query SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
+        eval_2D = dataProcess.encQuery(query, self.default_symb_enc, common_pos)
+        embedding_eval = embedding_ADAtrain.transform(eval_2D)
+
+        # assign strains to query data
+        strains = dataProcess.assignStrains(sample_names)
+
+        train_tsne_df = pd.DataFrame(
+            {'tsne_1': embedding_ADAtrain[:, 0], 'tsne_2': embedding_ADAtrain[:, 1],
+             'label': self.sequence_names})
+        tsne_result_df = pd.DataFrame(
+            {'tsne_1': embedding_eval[:, 0], 'tsne_2': embedding_eval[:, 1], 'Sample': sample_names})
+        tsne_result_df["Strain"] = strains
+        fig, ax = plt.subplots(1)
+        sns.scatterplot(x='tsne_1', y='tsne_2', data=train_tsne_df, ax=ax, s=5, alpha=0.5, color="black")
+        sns.scatterplot(x='tsne_1', y='tsne_2', hue='Sample', data=tsne_result_df, ax=ax, s=5, style='Strain',
+                        markers=["o", "v", "D", "X"])
+        ax.set_aspect('equal')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
+        fig.tight_layout()
+        plt.show()
 
 
 test = snpTSNE("snps.db")
-#test.embedQuery("PT_SIF0908.variants.tsv")
-#test.multembedTSNE("variantContentTable.tsv")
-#test.testDataTSNE("variantContentTable.tsv")
-
-def adaptTSNE():
-    t = 1
+# test.embedQuery("PT_SIF0908.variants.tsv")
+# test.multembedTSNE("variantContentTable.tsv")
+# test.testDataTSNE("variantContentTable.tsv")
+test.adaptTSNE("variantContentTable.tsv")
