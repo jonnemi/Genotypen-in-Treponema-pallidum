@@ -255,19 +255,24 @@ class snpTSNE:
         # assign strains to query data
         strains = dataProcess.assignStrains(sample_names)
 
+        # plot tSNE
         train_tsne_df = pd.DataFrame(
             {'tsne_1': embedding_ADAtrain[:, 0], 'tsne_2': embedding_ADAtrain[:, 1],
-             'label': self.sequence_names})
+             'label': self.sequence_names, 'strain': "unknown (Reference db)"})
         tsne_result_df = pd.DataFrame(
-            {'tsne_1': embedding_eval[:, 0], 'tsne_2': embedding_eval[:, 1], 'Sample': sample_names})
-        tsne_result_df["Strain"] = strains
+            {'tsne_1': embedding_eval[:, 0], 'tsne_2': embedding_eval[:, 1], 'label': sample_names, 'strain': strains})
         fig, ax = plt.subplots(1)
         sns.scatterplot(x='tsne_1', y='tsne_2', data=train_tsne_df, ax=ax, s=5, alpha=0.5, color="black")
-        sns.scatterplot(x='tsne_1', y='tsne_2', hue='Sample', data=tsne_result_df, ax=ax, s=5, style='Strain',
+        sns.scatterplot(x='tsne_1', y='tsne_2', hue='label', data=tsne_result_df, ax=ax, s=5, style='strain',
                         markers=["o", "v", "D", "X"])
         ax.set_aspect('equal')
         ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
         fig.tight_layout()
+
+        # save tSNE dataframes to file
+        tSNE_df = pd.concat([train_tsne_df, tsne_result_df], ignore_index=True)
+        tSNE_df.to_csv("tSNE.tsv", sep='\t')
+
         plt.show()
 
 
