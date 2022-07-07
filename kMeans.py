@@ -2,6 +2,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import seaborn as sns
+import numpy as np
+from kneed import KneeLocator
 
 # read tSNE data from file
 tSNE = pd.read_csv("tSNE.tsv", sep='\t')
@@ -22,7 +24,6 @@ plt.xlabel('k')
 plt.ylabel('Distortion')
 plt.title('The Elbow Method showing the optimal k')
 plt.xticks(K)
-#plt.show()
 
 # elbow can be observed for k=3, fit model for k=3
 kmeanModel = KMeans(n_clusters=3)

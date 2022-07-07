@@ -17,7 +17,6 @@ neighbors = nearest_neighbors.fit(data)
 
 distances, indices = neighbors.kneighbors(data)
 distances = np.sort(distances[:, 10], axis=0)
-print(distances)
 
 # find elbow/knee with kneed
 i = np.arange(len(distances))

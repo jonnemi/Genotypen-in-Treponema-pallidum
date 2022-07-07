@@ -276,8 +276,35 @@ class snpTSNE:
         plt.show()
 
 
+    def lociTSNE(self, tsvFile):
+        dataset = dataProcess.getLociDataset(tsvFile, self.db_name, [0, 0, 0, 0, 1, 0])
+        embedding_ADAtrain = self.tsne.fit(dataset["train"])
+        embedding_eval = embedding_ADAtrain.transform(dataset["test"])
+
+        # assign strains to query data
+        strains = dataProcess.assignStrains(dataset['test_sample_names'])
+
+        # plot tSNE
+        train_tsne_df = pd.DataFrame(
+            {'tsne_1': embedding_ADAtrain[:, 0], 'tsne_2': embedding_ADAtrain[:, 1],
+             'label': dataset['train_seq_names'], 'strain': "unknown (Reference db)"})
+        tsne_result_df = pd.DataFrame(
+            {'tsne_1': embedding_eval[:, 0], 'tsne_2': embedding_eval[:, 1], 'label': dataset['test_sample_names'], 'strain': strains})
+        fig, ax = plt.subplots(1)
+        sns.scatterplot(x='tsne_1', y='tsne_2', data=train_tsne_df, ax=ax, s=5, alpha=0.5, color="black")
+        sns.scatterplot(x='tsne_1', y='tsne_2', hue='label', data=tsne_result_df, ax=ax, s=5, style='strain',
+                        markers=["o", "v", "D", "X"])
+        ax.set_aspect('equal')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
+        fig.tight_layout()
+
+        plt.show()
+
+
 test = snpTSNE("snps.db")
 # test.embedQuery("PT_SIF0908.variants.tsv")
 # test.multembedTSNE("variantContentTable.tsv")
 # test.testDataTSNE("variantContentTable.tsv")
-test.adaptTSNE("variantContentTable.tsv")
+# test.adaptTSNE("variantContentTable.tsv")
+test.lociTSNE("variantContentTable.tsv")
+
