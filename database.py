@@ -2,6 +2,32 @@ import sqlite3
 import pandas
 import os
 
+import pandas as pd
+
+
+def getGaps(filename):
+    directory = "pairwise_gaps"
+    file = os.path.join(directory, filename)
+    # checking if it is a file
+    if os.path.isfile(file):
+        with open(file) as tsvFile:
+            # insert snp file into database
+            columns = ['Genome', 'Contig', 'Position_in_Contig', 'GenomeWide_Position',	'Length', 'Unnamed1', 'Unnamed2', 'Unnamed3', 'Unnamed4', 'Unnamed5', 'Unnamed6']
+            df = pandas.read_csv(tsvFile, sep='\t', header=1, names=columns)
+
+            df = df[df['Contig'] == '[1,1139633]']
+            df = df[['GenomeWide_Position', 'Length']]
+            df['Range'] = df[['GenomeWide_Position', 'Length']].to_numpy().tolist()
+            df['Range'] = df['Range'].apply(lambda x: [x[0] + y for y in range(0, x[1])])
+            flat_pos = [x for xs in df['Range'].tolist() for x in xs]
+
+            gaps = pd.DataFrame(flat_pos, columns=['GenomeWide_Position'])
+            gaps['Gaps_ahead'] = 1
+            gaps['Gaps_ahead'] = gaps['Gaps_ahead'].cumsum()
+            print(gaps)
+        tsvFile.close()
+    return gaps
+
 
 def createDB(db_name, directory):
     # establish connection to sqlite database
@@ -22,7 +48,25 @@ def createDB(db_name, directory):
         if os.path.isfile(file):
             with open(file) as tsvFile:
                 # insert snp file into database
-                pandas.read_csv(tsvFile, sep='\t').to_sql("snps", conn, index=False, if_exists='append')
+                df = pandas.read_csv(tsvFile, sep='\t')
+
+                """# determine gap positions to remove
+                gap_df = getGaps(filename)
+
+                # remove gaps aka insertions
+                df = df[~df["sequence_2_GenWidePos2"].isin(gap_df['GenomeWide_Position'].tolist())]
+
+                # substract gaps from SNP positions
+                df['Gap_count'] = df["sequence_2_GenWidePos2"].apply(lambda x: gap_df[gap_df['GenomeWide_Position'] <= x].tail(1).values)
+                df['Gap_count'] = df['Gap_count'].apply(lambda x: x.tolist()[0][1] if x.tolist() else 0)
+                df["sequence_2_GenWidePos2"] = df["sequence_2_GenWidePos2"] - df["Gap_count"]
+
+
+                df.to_csv("test.tsv", sep='\t')
+                df = df.drop(columns=["Gap_count"])"""
+
+                df.to_sql("snps", conn, index=False, if_exists='append')
+               
 
     # rename for easier access
     cursor.execute("ALTER TABLE snps RENAME COLUMN 'SNP pattern' TO SNP_pattern;")
@@ -38,7 +82,7 @@ def createDB(db_name, directory):
 
     conn.close()
 
-# createDB("snps.db", "snps")
+#createDB("snps.db", "snps")
 
 def filterUnambiguous(from_db_name):
     # establish connection to sqlite database
@@ -65,7 +109,7 @@ def filterUnambiguous(from_db_name):
 
     conn.close()
 
-filterUnambiguous("snps.db")
+#filterUnambiguous("snps.db")
 
 def filterUnique(from_db_name):
     # establish connection to sqlite database

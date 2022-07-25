@@ -21,7 +21,7 @@ class snpTSNE:
 
     def __init__(self, db_name):
         self.db_name = db_name
-        self.default_symb_enc = [0, 0, 0, 0, 1, 0]
+        self.default_symb_enc = [0, 0, 0, 0, 1]
 
         self.SNPdf = dataProcess.getSNPdf(db_name)
         self.ref_positions = self.SNPdf["Position"].unique().tolist()
@@ -31,12 +31,20 @@ class snpTSNE:
         self.sequence_names.append("Reference(NC_021490)")
         train_2D = dataProcess.encDF(self.SNPdf, self.default_symb_enc, self.ref_positions)
 
-        self.tsne = TSNE(
+        """self.tsne = TSNE(
             perplexity=30,
             metric="euclidean",
             n_jobs=8,
             random_state=42,
             verbose=True,
+        )"""
+        self.tsne = TSNE(
+            perplexity=30,
+            initialization="random",
+            metric="euclidean",
+            n_jobs=8,
+            random_state=3,
+            verbose=True
         )
         self.embedding_train = self.tsne.fit(train_2D)
 
@@ -146,86 +154,15 @@ class snpTSNE:
             fig.tight_layout()
             plt.show()
 
-    def testDataTSNE(self, tsvFile):
-        if os.path.isfile(tsvFile):
-            query = pd.read_csv(tsvFile, sep='\t', header=1)
-            # create vector of SNPs, with field for each SNP site (reference_GenWidePos)
-            sample_names = list(query.columns)
-            sample_names.remove('Position')
-            # sample_names.remove('Reference')
 
-            # remove all rows where position is not in reference database
-            query = query[query['Position'].isin(map(str, self.positions))]
-            query.reset_index()
-
-            # create vector query SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
-            eval_3D = np.full((len(sample_names), len(self.positions), self.symb_numb), self.default_symb_enc)
-
-            s = 0
-            for sample in sample_names:
-                p = 0
-                for entry in query[sample]:
-                    pos = self.positions.index(int(query['Position'].iloc[p]))
-                    eval_3D[s][pos] = encodeNuc(entry.lower())
-                    p += 1
-                s += 1
-
-            # reshape training vector from 3D to 2D
-            sample, position, one_hot_enc = eval_3D.shape
-            eval_2D = eval_3D.reshape((sample, position * one_hot_enc))
-
-            # embedding_eval = self.embedding_train.transform(eval_2D)
-            embedding_eval = self.tsne.fit(eval_2D)
-
-            # plot training tSNE
-
-            # assign color palette to each sample according to it's expected group
-            color1 = "pink"
-            color2 = "blue"
-            color3 = "green"
-            color4 = "orange"
-
-            group1 = ['BosniaA']
-            group2 = ['Fribourg', 'CDC2', 'GHA1', 'Gauthier', 'IND1', 'SAM1', 'SamoaD']
-            group3 = ['Seattle81', 'SEA86', 'NE20', 'BAL3', 'BAL73', 'Chicago', 'NIC1', 'NIC2', 'Dallas']
-
-            strain_labels = ['TEN', 'TPE', 'Nicols (TPA)', 'SS14 (TPA)']
-
-            palette = dict()
-            strains = []
-            for sample in sample_names:
-                if sample == 'Reference':
-                    color = 'red'
-                    strain = strain_labels[2]
-                elif sample in group1:
-                    color = color1
-                    strain = strain_labels[0]
-                elif sample in group2:
-                    color = color2
-                    strain = strain_labels[1]
-                elif sample in group3:
-                    color = color3
-                    strain = strain_labels[2]
-                else:
-                    color = color4
-                    strain = strain_labels[3]
-                palette[sample] = color
-                strains.append(strain)
-
-            tsne_result_df = pd.DataFrame(
-                {'tsne_1': embedding_eval[:, 0], 'tsne_2': embedding_eval[:, 1], 'Sample': sample_names})
-            tsne_result_df["Strain"] = strains
-            fig, ax = plt.subplots(1)
-            sns.scatterplot(x='tsne_1', y='tsne_2', hue='Sample', data=tsne_result_df, ax=ax, s=5, style='Strain',
-                            markers=["o", "v", "D", "X"])
-            ax.set_aspect('equal')
-            ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
-            fig.tight_layout()
-            plt.show()
 
     def adaptTSNE(self, tsvFile):
         if os.path.isfile(tsvFile):
             query = pd.read_csv(tsvFile, sep='\t', header=1)
+
+        # manually drop TPE an TEN samples
+        query = query.drop(columns=['BosniaA', 'Fribourg', 'CDC2', 'GHA1', 'Gauthier', 'IND1', 'SAM1', 'SamoaD'])
+
         # create vector of SNPs, with field for each SNP site (reference_GenWidePos)
         sample_names = list(query.columns)
         sample_names.remove('Position')
@@ -264,7 +201,7 @@ class snpTSNE:
         fig, ax = plt.subplots(1)
         sns.scatterplot(x='tsne_1', y='tsne_2', data=train_tsne_df, ax=ax, s=5, alpha=0.5, color="black")
         sns.scatterplot(x='tsne_1', y='tsne_2', hue='label', data=tsne_result_df, ax=ax, s=5, style='strain',
-                        markers=["o", "v", "D", "X"])
+                        markers=["o", "v"])
         ax.set_aspect('equal')
         ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
         fig.tight_layout()
@@ -276,35 +213,130 @@ class snpTSNE:
         plt.show()
 
 
-    def lociTSNE(self, tsvFile):
-        dataset = dataProcess.getLociDataset(tsvFile, self.db_name, [0, 0, 0, 0, 1, 0])
-        embedding_ADAtrain = self.tsne.fit(dataset["train"])
-        embedding_eval = embedding_ADAtrain.transform(dataset["test"])
-
-        # assign strains to query data
-        strains = dataProcess.assignStrains(dataset['test_sample_names'])
-
-        # plot tSNE
-        train_tsne_df = pd.DataFrame(
-            {'tsne_1': embedding_ADAtrain[:, 0], 'tsne_2': embedding_ADAtrain[:, 1],
-             'label': dataset['train_seq_names'], 'strain': "unknown (Reference db)"})
-        tsne_result_df = pd.DataFrame(
-            {'tsne_1': embedding_eval[:, 0], 'tsne_2': embedding_eval[:, 1], 'label': dataset['test_sample_names'], 'strain': strains})
-        fig, ax = plt.subplots(1)
-        sns.scatterplot(x='tsne_1', y='tsne_2', data=train_tsne_df, ax=ax, s=5, alpha=0.5, color="black")
-        sns.scatterplot(x='tsne_1', y='tsne_2', hue='label', data=tsne_result_df, ax=ax, s=5, style='strain',
-                        markers=["o", "v", "D", "X"])
-        ax.set_aspect('equal')
-        ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
-        fig.tight_layout()
-
-        plt.show()
-
-
 test = snpTSNE("snps.db")
 # test.embedQuery("PT_SIF0908.variants.tsv")
 # test.multembedTSNE("variantContentTable.tsv")
 # test.testDataTSNE("variantContentTable.tsv")
-# test.adaptTSNE("variantContentTable.tsv")
-test.lociTSNE("variantContentTable.tsv")
+test.adaptTSNE("variantContentTable.tsv")
 
+def MLSTtSNE(tsvFile):
+    dataset = dataProcess.getLociDataset(tsvFile, "snps.db", [0, 0, 0, 0, 1],
+                                         ("TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"))
+    print(dataset["train"])
+
+    embedding = TSNE(
+        perplexity=23,
+        initialization="pca",
+        metric="cosine",
+        n_jobs=8,
+        random_state=3,
+
+    ).fit(dataset["test"])
+
+    # assign strains to query data
+    strains = dataProcess.assignStrains(dataset['test_sample_names'])
+
+    # plot tSNE
+    """train_tsne_df = pd.DataFrame(
+        {'tsne_1': fit[:, 0], 'tsne_2': fit[:, 1],
+         'label': dataset['train_seq_names'], 'strain': "unknown (Reference db)"})"""
+    tsne_result_df = pd.DataFrame(
+        {'tsne_1': embedding[:, 0], 'tsne_2': embedding[:, 1], 'label': dataset['test_sample_names'],
+         'strain': strains})
+    fig, ax = plt.subplots(1)
+    #sns.scatterplot(x='tsne_1', y='tsne_2', data=train_tsne_df, ax=ax, s=5, alpha=0.5, color="black")
+    sns.scatterplot(x='tsne_1', y='tsne_2', hue='strain', data=tsne_result_df, ax=ax, s=5, style='strain',
+                    markers=["o", "v"])
+    ax.set_aspect('equal')
+    ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
+    fig.tight_layout()
+
+    # save MLST tSNE dataframes to file
+    # tSNE_df = pd.concat([train_tsne_df, tsne_result_df], ignore_index=True)
+    # tSNE_df.to_csv("MLSTtSNE.tsv", sep='\t')
+
+    plt.show()
+
+#MLSTtSNE("variantContentTable.tsv")
+
+
+def testDataTSNE(tsvFile, default_enc):
+    if os.path.isfile(tsvFile):
+        query = pd.read_csv(tsvFile, sep='\t', header=1)
+        # create vector of SNPs, with field for each SNP site (reference_GenWidePos)
+        sample_names = list(query.columns)
+        sample_names.remove('Position')
+        # sample_names.remove('Reference')
+
+        # remove all rows with insertions
+        query = query[~query['Position'].str.contains("\+")]
+        query.reset_index()
+
+
+        # create vector query SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
+        eval_3D = np.empty(len(sample_names), int(len(query['Position'])), len(default_enc))
+
+        s = 0
+        for sample in sample_names:
+            p = 0
+            for entry in query[sample]:
+                pos = int(query['Position'].iloc[p])
+                eval_3D[s][pos] = encodeNuc(entry.lower())
+                p += 1
+            s += 1
+
+        # reshape training vector from 3D to 2D
+        sample, position, one_hot_enc = eval_3D.shape
+        eval_2D = eval_3D.reshape((sample, position * one_hot_enc))
+        print(eval_2D)
+
+        """# embedding_eval = self.embedding_train.transform(eval_2D)
+        embedding_eval = self.tsne.fit(eval_2D)
+
+        # plot training tSNE
+
+        # assign color palette to each sample according to it's expected group
+        color1 = "pink"
+        color2 = "blue"
+        color3 = "green"
+        color4 = "orange"
+
+        group1 = ['BosniaA']
+        group2 = ['Fribourg', 'CDC2', 'GHA1', 'Gauthier', 'IND1', 'SAM1', 'SamoaD']
+        group3 = ['Seattle81', 'SEA86', 'NE20', 'BAL3', 'BAL73', 'Chicago', 'NIC1', 'NIC2', 'Dallas']
+
+        strain_labels = ['TEN', 'TPE', 'Nicols (TPA)', 'SS14 (TPA)']
+
+        palette = dict()
+        strains = []
+        for sample in sample_names:
+            if sample == 'Reference':
+                color = 'red'
+                strain = strain_labels[2]
+            elif sample in group1:
+                color = color1
+                strain = strain_labels[0]
+            elif sample in group2:
+                color = color2
+                strain = strain_labels[1]
+            elif sample in group3:
+                color = color3
+                strain = strain_labels[2]
+            else:
+                color = color4
+                strain = strain_labels[3]
+            palette[sample] = color
+            strains.append(strain)
+
+        tsne_result_df = pd.DataFrame(
+            {'tsne_1': embedding_eval[:, 0], 'tsne_2': embedding_eval[:, 1], 'Sample': sample_names})
+        tsne_result_df["Strain"] = strains
+        fig, ax = plt.subplots(1)
+        sns.scatterplot(x='tsne_1', y='tsne_2', hue='Sample', data=tsne_result_df, ax=ax, s=5, style='Strain',
+                        markers=["o", "v", "D", "X"])
+        ax.set_aspect('equal')
+        ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
+        fig.tight_layout()
+        plt.show()"""
+
+#testDataTSNE("variantContentTable.tsv", [0, 0, 0, 0, 1])

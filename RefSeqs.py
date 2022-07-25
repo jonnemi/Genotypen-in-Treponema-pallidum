@@ -19,15 +19,18 @@ def fetch_id(path, id):
         out_handle.close()
         handle.close()
 
-reference = "NC_021490.2"
-if reference in record["IdList"]:
-    refPath = "C:/Users/Jonathan/Documents/BioInformatik/6. Semester/Bachelorarbeit/Mauve_alignments/mauveIn/Reference_"
-    fetch_id(refPath, reference)
-    record["IdList"].remove(reference)
+def fetch_all():
+    reference = "NC_021490.2"
+    if reference in record["IdList"]:
+        refPath = "C:/Users/Jonathan/Documents/BioInformatik/6. Semester/Bachelorarbeit/Mauve_alignments/mauveIn/Reference_"
+        fetch_id(refPath, reference)
+        record["IdList"].remove(reference)
 
-count = 1
-for id in idList:
-    fetch_id(savePath, id)
-    total = len(idList)
-    print("Fetch " + str(count) + " of " + str(total) + " done.")
-    count += 1
+    count = 1
+    for id in idList:
+        fetch_id(savePath, id)
+        total = len(idList)
+        print("Fetch " + str(count) + " of " + str(total) + " done.")
+        count += 1
+
+print(record)

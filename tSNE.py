@@ -1,88 +1,181 @@
+import matplotlib.pyplot as plt
 import numpy as np
-import scipy.cluster as sc_clstr
-import sqlite3
-from numpy import array
-from numpy import argmax
-from sklearn.preprocessing import LabelEncoder
-from sklearn.preprocessing import OneHotEncoder
-
-from sklearn.manifold import TSNE
 import pandas as pd
 import seaborn as sns
-import matplotlib.pyplot as plt
+
+from openTSNE import TSNE
+import dataProcess
 
 
-def encodeNuc(nuc):
-    enc = [".", "a", "c", "g", "t"]
-    i = enc.index(nuc)
-    one_hot = [0] * 5
-    one_hot[i] = 1
-    return i
+def tSNE(queryTSV, db_name):
+    # load train and test dataset
+    dataset = dataProcess.getADAdataset(queryTSV, db_name, [0, 0, 0, 0, 1])
 
-#def generate_sample_vector():
-    #return np.array([float(n) for n in np.random.randint(1, 4, size=vector_size)])
-# sample_data = np.array([generate_sample_vector() for i in range(samples)])
+    # fit and transform standard tSNE
+    fit_standard = TSNE(
+        perplexity=30,
+        initialization="random",
+        metric="euclidean",
+        n_jobs=8,
+        random_state=3,
+    ).fit(dataset["train"])
+    embedding_standard = fit_standard.transform(dataset["test"])
 
-# get tSNE input data from snp database
-# establish connection to sqlite database
-conn = sqlite3.connect("snps.db")
-cursor = conn.cursor()
+    # fit and transform tSNE with PCA initialization
+    fit_pca = TSNE(
+        perplexity=30,
+        initialization="pca",
+        metric="euclidean",
+        n_jobs=8,
+        random_state=3,
+    ).fit(dataset["train"])
+    embedding_pca = fit_pca.transform(dataset["test"])
 
-# get all possible sequence_names aka types
-sql_command = "SELECT DISTINCT sequence_name FROM unambiguous ORDER BY sequence_name;"
-cursor.execute(sql_command)
-content = cursor.fetchall()
-sequence_names = list()
-for seq in content:
-    sequence_names.append(seq[0])
+    # fit and transform tSNE using cosine distance
+    fit_cosine = TSNE(
+        perplexity=30,
+        initialization="random",
+        metric="hamming",
+        n_jobs=8,
+        random_state=3,
+    ).fit(dataset["train"])
+    embedding_cosine = fit_cosine.transform(dataset["test"])
 
-# get all reference_GenWidePos for SNPs
-sql_command = "SELECT DISTINCT reference_GenWidePos FROM unambiguous ORDER BY reference_GenWidePos;"
-cursor.execute(sql_command)
-content = cursor.fetchall()
-positions = list()
-for pos in content:
-    positions.append(pos[0])
+    # fit and transform tSNE with PCA initialization using cosine distance
+    fit_pca_cosine = TSNE(
+        perplexity=30,
+        initialization="pca",
+        metric="hamming",
+        n_jobs=8,
+        random_state=3,
+    ).fit(dataset["train"])
+    embedding_pca_cosine = fit_pca_cosine.transform(dataset["test"])
+
+    fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(17, 17))
+
+    titles = ["Standard t-SNE", "PCA initialization", "Hamming distance", "PCA initialization + Hamming distance"]
+    fits = [fit_standard, fit_pca, fit_cosine, fit_pca_cosine]
+    embeddings = [embedding_standard, embedding_pca, embedding_cosine, embedding_pca_cosine]
+
+    strains = dataProcess.assignStrains(dataset['test_sample_names'])
+
+    j = [0, 0, 1, 1]
+    for i in range(0, 4):
+        # plot hierarchical clustering of tSNE
+
+        train_pca_df = pd.DataFrame(
+            {'tsne_1': fits[i][:, 0], 'tsne_2': fits[i][:, 1],
+             'label': dataset['train_seq_names']})
+        test_pca_df = pd.DataFrame(
+            {'tsne_1': embeddings[i][:, 0], 'tsne_2': embeddings[i][:, 1],
+             'label': dataset['test_sample_names']})
+        test_pca_df["strain"] = strains
+
+        n = i % 2
+        m = j[i]
+        sns.scatterplot(x='tsne_1', y='tsne_2', data=train_pca_df, ax=axs[n, m], s=5, alpha=0.5,
+                        color='black')
+        sns.scatterplot(x='tsne_1', y='tsne_2', hue='strain', data=test_pca_df, ax=axs[n, m], s=5)
+        axs[n, m].set_aspect('equal')
+        axs[n, m].set_xticklabels([])
+        axs[n, m].set_yticklabels([])
+        # axs[n, m].set_xlabel('')
+        # axs[n, m].set_ylabel('')
+        axs[n, m].set_title(titles[i])
+        axs[n, m].legend([], [], frameon=False)
+    plt.gca().get_legend_handles_labels()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
+    plt.show()
 
 
-# create vector of SNPs, with field for each SNP site (reference_GenWidePos)
-"""vec = np.full((len(sequence_names), len(positions), 5), [1, 0, 0, 0, 0])
-for sequence in sequence_names:
-    # query SNP pattern and position from database
-    sql_command = "SELECT SNP_pattern, reference_GenWidePos FROM unambiguous WHERE unambiguous.sequence_name='" + str(sequence) + "' ORDER BY reference_GenWidePos;"
-    cursor.execute(sql_command)
-    snp_query = cursor.fetchall()
+def tuneTSNE(queryTSV, db_name):
+    # load train and test dataset
+    dataset = dataProcess.getADAdataset(queryTSV, db_name, [0, 0, 0, 0, 1])
+    strains = dataProcess.assignStrains(dataset['test_sample_names'])
+    fig, axs = plt.subplots(nrows=3, ncols=2, figsize=(17, 17))
+    perplexities = [2, 5, 10, 20, 30, 50]
+    j = [0, 0, 0, 1, 1, 1]
 
-    for entry in snp_query:
-        pos = positions.index(entry[1])
-        seq = sequence_names.index(sequence)
-        enc_entry = encodeNuc(entry[0][0])
-        vec[seq][pos] = enc_entry"""
+    # fit and transform tSNE with PCA initialization using cosine distance with different perplexities
+    for i in range(0, 6):
+        fit = TSNE(
+            perplexity=perplexities[i],
+            initialization="pca",
+            metric="hamming",
+            n_jobs=8,
+            random_state=3,
+        ).fit(dataset["train"])
+        embedding = fit.transform(dataset["test"])
 
-### 2nd try with dim 2
-vec = np.full((len(sequence_names), len(positions)), 0)
-for sequence in sequence_names:
-    # query SNP pattern and position from database
-    sql_command = "SELECT SNP_pattern, reference_GenWidePos FROM unambiguous WHERE unambiguous.sequence_name='" + str(sequence) + "' ORDER BY reference_GenWidePos;"
-    cursor.execute(sql_command)
-    snp_query = cursor.fetchall()
+        title = "Perplexity = " + str(perplexities[i])
 
-    for entry in snp_query:
-        pos = positions.index(entry[1])
-        seq = sequence_names.index(sequence)
-        enc_entry = encodeNuc(entry[0][0])
-        vec[seq][pos] = enc_entry
-conn.close()
+        # plot hierarchical clustering of tSNE
+        train_pca_df = pd.DataFrame(
+            {'tsne_1': fit[:, 0], 'tsne_2': fit[:, 1],
+             'label': dataset['train_seq_names']})
+        test_pca_df = pd.DataFrame(
+            {'tsne_1': embedding[:, 0], 'tsne_2': embedding[:, 1],
+             'label': dataset['test_sample_names']})
+        test_pca_df["strain"] = strains
 
-tsne = TSNE(2)
-tsne_result = tsne.fit_transform(vec)
-print(tsne_result.shape)
-tsne_result_df = pd.DataFrame({'tsne_1': tsne_result[:, 0], 'tsne_2': tsne_result[:, 1], 'label': sequence_names})
-fig, ax = plt.subplots(1)
-sns.scatterplot(x='tsne_1', y='tsne_2', hue='label', data=tsne_result_df, ax=ax, s=5)
-# lim = (tsne_result.min()-5, tsne_result.max()+5)
-# ax.set_xlim(lim)
-# ax.set_ylim(lim)
-ax.set_aspect('equal')
-ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
-plt.show()
+        n = i % 3
+        m = j[i]
+        sns.scatterplot(x='tsne_1', y='tsne_2', data=train_pca_df, ax=axs[n, m], s=5, alpha=0.5,
+                        color='black')
+        sns.scatterplot(x='tsne_1', y='tsne_2', hue='strain', data=test_pca_df, ax=axs[n, m], s=5)
+        axs[n, m].set_aspect('equal')
+        axs[n, m].set_xticklabels([])
+        axs[n, m].set_yticklabels([])
+        axs[n, m].set_title(title)
+        axs[n, m].legend([], [], frameon=False)
+    plt.gca().get_legend_handles_labels()
+    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0)
+    plt.show()
+
+
+def compareTrainTest(queryTSV, db_name):
+    # load train and test dataset
+    dataset = dataProcess.getADAdataset(queryTSV, db_name, [0, 0, 0, 0, 1])
+
+    fig, ax = plt.subplots(1)
+
+    # fit and transform tSNE with PCA initialization using cosine distance with different perplexities
+    fit = TSNE(
+        perplexity=30,
+        initialization="pca",
+        metric="hamming",
+        n_jobs=8,
+        random_state=3,
+    ).fit(dataset["train"])
+    embedding = fit.transform(dataset["test"])
+
+    # plot hierarchical clustering of tSNE
+    train_pca_df = pd.DataFrame(
+        {'tsne_1': fit[:, 0], 'tsne_2': fit[:, 1],
+         'label': dataset['train_seq_names']})
+    test_pca_df = pd.DataFrame(
+        {'tsne_1': embedding[:, 0], 'tsne_2': embedding[:, 1],
+         'label': dataset['test_sample_names']})
+
+    names = dataProcess.getStrains(dataset['train_seq_names'])
+    train_pca_df['label'] = names
+    intersection = list(set(dataset['test_sample_names']).intersection(names))
+    print(len(intersection))
+
+    train_pca_df = train_pca_df[train_pca_df['label'].isin(test_pca_df['label'])].reset_index()
+    test_pca_df = test_pca_df[test_pca_df['label'].isin(intersection)].reset_index()
+
+    sns.scatterplot(x='tsne_1', y='tsne_2', data=train_pca_df, ax=ax, s=5, alpha=0.5,
+                    hue='label')
+    sns.scatterplot(x='tsne_1', y='tsne_2', hue='label', data=test_pca_df, ax=ax, s=5)
+    ax.set_aspect('equal')
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.legend([], [], frameon=False)
+    ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
+    plt.show()
+
+
+#tSNE("variantContentTable.tsv", "snps.db")
+#tuneTSNE("variantContentTable.tsv", "snps.db")
+compareTrainTest("variantContentTable.tsv", "snps.db")
