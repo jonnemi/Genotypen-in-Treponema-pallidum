@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+import os
 
 from openTSNE import TSNE
 import dataProcess
@@ -178,4 +179,44 @@ def compareTrainTest(queryTSV, db_name):
 
 #tSNE("variantContentTable.tsv", "snps.db")
 #tuneTSNE("variantContentTable.tsv", "snps.db")
-compareTrainTest("variantContentTable.tsv", "snps.db")
+#compareTrainTest("variantContentTable.tsv", "snps.db")
+
+
+
+def queryUmap(tsvFile, filter, default_enc):
+    if os.path.isfile(tsvFile):
+        query = pd.read_csv(tsvFile, sep='\t', header=0)
+    query.rename(columns={'POSITION': 'Position'}, inplace=True)
+
+    # create vector of SNPs, with field for each SNP site
+    # remove all indel rows from dataframe
+    query = query[query['ALT_CONTENT'].str.len() == 1 & ~query['ALT_CONTENT'].str.contains("-")]
+    query.reset_index()
+
+    # get all positions as list
+    positions = query["Position"].tolist()
+
+    # create encoded SNP vector, with field for each SNP site using one-hot encoding
+    process = dataProcess.newEncQuery(query, default_enc, positions, filter)
+    enc_2D = process["data"]
+    sample_names = process["sample_names"]
+
+    fit = TSNE(
+        perplexity=30,
+        initialization="pca",
+        metric="hamming",
+        n_jobs=8,
+        random_state=3,
+    ).fit.transform(enc_2D)
+
+    tsne_df = pd.DataFrame(
+        {'umap_1': fit[:, 0], 'umap_2': fit[:, 1],
+         'label': sample_names})
+
+    fig, ax = plt.subplots(1)
+    sns.scatterplot(x='tsne_1', y='tsne_2', data=tsne_df, ax=ax, s=5, hue='label')
+    ax.set_aspect('equal')
+    ax.legend([],[], frameon=False)
+    plt.show()
+
+queryUmap("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], [0, 0, 0, 0, 1])
