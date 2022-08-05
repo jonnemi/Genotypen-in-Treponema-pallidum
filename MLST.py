@@ -151,27 +151,28 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
 
 def compareMLST(tsvQuery, loci_list, new_format):
     # get loci training and test data set
-    filter = ["MODERATE", "HIGH"]
+    filter = ["MEDIUM", "HIGH"]
     data = dataProcess.getLociDataset(tsvQuery, "snps.db", ".", loci_list, new_format, filter)
     print("dataset acquired")
 
     # create MLST for referene data set
     ref_profiles = MLST(data['train'], data['train_seq_names'], data['all_train_names'], loci_list)
-    print(ref_profiles)
     print("Reference MLST done")
+    print(ref_profiles)
+    print("Number of allelic profiles: " + str(len(ref_profiles)))
 
     complete_count = ref_profiles[~ref_profiles['Allelic Profile'].str.contains("X")]
-    print(complete_count)
-    print(len(complete_count))
+    print("Number of complete allelic profiles: " + str(len(complete_count)))
 
     # create MLST for query data set
     query_profiles = MLST(data['test'], data['test_seq_names'], data['all_test_names'], loci_list)
-    print(query_profiles)
     print("Query MLST done")
+    print(query_profiles)
+    print("Number of allelic profiles: " + str(len(query_profiles)))
 
     complete_count = query_profiles[~query_profiles['Allelic Profile'].str.contains("X")]
-    print(complete_count)
-    print(len(complete_count))
+    print("Number of complete allelic profiles: " + str(len(complete_count)))
+
 
 
     # compare reference and query allelic profiles
