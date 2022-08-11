@@ -183,7 +183,7 @@ def compareTrainTest(queryTSV, db_name):
 
 
 
-def queryUmap(tsvFile, filter, default_enc):
+def querytSNE(tsvFile, filter, default_enc):
     if os.path.isfile(tsvFile):
         query = pd.read_csv(tsvFile, sep='\t', header=0)
     query.rename(columns={'POSITION': 'Position'}, inplace=True)
@@ -219,4 +219,4 @@ def queryUmap(tsvFile, filter, default_enc):
     ax.legend([],[], frameon=False)
     plt.show()
 
-queryUmap("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], [0, 0, 0, 0, 1])
+querytSNE("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], [0, 0, 0, 0, 1])

@@ -11,18 +11,19 @@ pd.options.mode.chained_assignment = None  # default='warn'
 def encodeNuc(nuc, encoding):
     symbols = ["a", "c", "g", "t", ".", "-"]
     i = symbols.index(nuc)
-    if i == 5:
-        i = 4
     if encoding == "string/none":
-        return nuc
+        enc = nuc
     elif encoding == "binary":
-        return 1
+        enc = 1
     elif encoding == "one-hot":
         one_hot_enc = [0] * 5
         one_hot_enc[i] = 1
-        return one_hot_enc
+        renc = one_hot_enc
     else:
-        return i
+        if i == 5:
+            i = 4
+        enc = i
+    return nuc
 
 def getSNPdf(db_name):
     # get tSNE input data from snp database
@@ -61,18 +62,28 @@ def getSNPdf(db_name):
     return df
 
 
-def encDF(df, default_enc, common_pos):
-    if isinstance(default_enc, list):
-        symb_count = len(default_enc)
+def encDF(df, encoding, common_pos):
+    if encoding == "binary":
+        default_enc = 0
+        enc_len = 1
+    elif encoding == "one-hot":
+        default_enc = [0, 0, 0, 0, 1]
+        enc_len = len(default_enc)
+    elif encoding == "integer":
+        default_enc = 4
+        enc_len = 1
+    elif encoding == "string/none":
+        default_enc = "."
+        enc_len = len(default_enc)
     else:
-        symb_count = 1
+        raise ValueError('Please specify encoding: (binary, one-hot, integer, string/none')
 
     seq_count = df['Sequence_name'].nunique()
     sequences = df['Sequence_name'].unique().tolist()
 
     # create training vector of SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
-    reference_3D = np.full((1, len(common_pos), symb_count), default_enc)
-    vec_3D = np.full((seq_count, len(common_pos), symb_count), default_enc)
+    reference_3D = np.full((1, len(common_pos), enc_len), default_enc)
+    vec_3D = np.full((seq_count, len(common_pos), enc_len), default_enc)
 
     for index, row in df.iterrows():
         if row['Position'] in common_pos:
@@ -82,7 +93,7 @@ def encDF(df, default_enc, common_pos):
             enc_entry = encodeNuc(row["SNP"], default_enc)
             vec_3D[seq][pos] = enc_entry
 
-            reference_3D[0][pos] = encodeNuc(row["Reference"], default_enc)
+            reference_3D[0][pos] = default_enc #encodeNuc(row["Reference"], encoding)
 
     vec_3D = np.append(vec_3D, reference_3D, axis=0)
 
@@ -92,27 +103,42 @@ def encDF(df, default_enc, common_pos):
     return vec_2D
 
 
-def encQuery(df, default_enc, common_pos):
-    if isinstance(default_enc, list):
-        symb_count = len(default_enc)
+def encQuery(df, encoding, common_pos):
+    if encoding == "binary":
+        default_enc = 0
+        enc_len = 1
+    elif encoding == "one-hot":
+        default_enc = [0, 0, 0, 0, 1]
+        enc_len = len(default_enc)
+    elif encoding == "integer":
+        default_enc = 4
+        enc_len = 1
+    elif encoding == "string/none":
+        default_enc = "."
+        enc_len = len(default_enc)
     else:
-        symb_count = 1
+        raise ValueError('Please specify encoding: (binary, one-hot, integer, string/none')
 
     sample_names = list(df.columns)
     sample_names.remove('Position')
     sample_names.remove('Reference')
 
     # create vector query SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
-    eval_3D = np.full((len(sample_names), len(common_pos), symb_count), default_enc)
+    eval_3D = np.full((len(sample_names) + 1, len(common_pos), enc_len), default_enc)
 
     s = 0
     for sample in sample_names:
         p = 0
         for entry in df[sample]:
             pos = common_pos.index(df['Position'].iloc[p])
-            eval_3D[s][pos] = encodeNuc(entry.lower(), default_enc)
+            eval_3D[s][pos] = encodeNuc(entry.lower(), encoding)
             p += 1
         s += 1
+
+    # add vector for Reference containing only default symbols
+    for c in range(len(common_pos) - 1):
+        eval_3D[s][c] = default_enc
+
 
     # reshape training vector from 3D to 2D
     sample, position, one_hot_enc = eval_3D.shape
@@ -142,11 +168,11 @@ def newEncQuery(df, encoding, common_pos):
     sample_names.sort()
 
     # create vector query SNPs, with field for each SNP site (reference_GenWidePos)
-    eval_3D = np.full((len(sample_names), len(common_pos), enc_len), default_enc)
+    eval_3D = np.full((len(sample_names) + 1, len(common_pos), enc_len), default_enc)
 
-    pos = 0
     for position in df['Position']:
         # only keep SNPs of impact given in filter (LOW, MODERATE or HIGH)
+        pos = common_pos.index(position)
         sequences = df[df['Position'] == position]["SAMPLES"].str.split(",").tolist()
         sequences = sequences[0]
 
@@ -160,6 +186,11 @@ def newEncQuery(df, encoding, common_pos):
                     # only consider SNPs, no indels
                     eval_3D[seq][pos] = encodeNuc(entry.lower(), encoding)
         pos += 1
+
+    # add vector for Reference containing only default symbols
+    for c in range(len(common_pos) - 1):
+        eval_3D[len(sample_names)][c] = default_enc
+    sample_names.append('Reference')
 
     # reshape training vector from 3D to 2D
     sample, position, one_hot_enc = eval_3D.shape
@@ -251,8 +282,11 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
     for x in MLST_positions:
         x.sort()
 
+    flat_MLST = [item for sublist in MLST_positions for item in sublist]
+
     # get all SNPs from reference database
     SNPdf = getSNPdf(db_name)
+    #DBdf_toMega(SNPdf, flat_MLST)
 
     # read tsvFile containing query sequence SNPs
     if not new_format:
@@ -263,9 +297,11 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
         query = query.drop(columns=['BosniaA', 'Fribourg', 'CDC2', 'GHA1', 'Gauthier', 'IND1', 'SAM1', 'SamoaD'])
         position_col = 'Position'
 
-        sample_names = list(query.columns)
-        sample_names.remove(position_col)
-        sample_names.remove('Reference')
+        all_sample_names = list(query.columns)
+        all_sample_names.remove(position_col)
+
+        # print query SNPs to .meg file
+        #oldQuerydf_toMega(query, flat_MLST)
     else:
         if os.path.isfile(tsvFile):
             query = pd.read_csv(tsvFile, sep='\t', header=0)
@@ -274,9 +310,9 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
         all_sample_names = query["SAMPLES"].apply(lambda x: x.split(",")).tolist()
         all_sample_names = [item for sublist in all_sample_names for item in sublist]
         all_sample_names = list(set(all_sample_names))
-        all_sample_names.sort()
+        all_sample_names.append("Reference")
 
-        sample_names = []
+    sample_names = []
 
     train_loci = []
     test_loci = []
@@ -299,12 +335,13 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
         # create training and test vector of SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
         train_2D = encDF(locus_SNPdf, default_enc, locus)
         if new_format:
-            test_process = newEncQuery(locus_query, default_enc, locus, filter)
+            test_process = newEncQuery(locus_query, default_enc, locus)
             test_2D = test_process["data"]
             names = test_process["sample_names"]
             sample_names.append(names)
         else:
             test_2D = encQuery(locus_query, default_enc, locus)
+            sample_names.append(all_sample_names)
         train_loci.append(train_2D)
         test_loci.append(test_2D)
 
@@ -357,32 +394,113 @@ def getQueryDataset(tsvFile, filter, encoding):
     return query
 
 
-"""def SNPdf_toMega(df, path):
+def newQuerydf_toMega(df, file):
+
     sample_names = df["SAMPLES"].str.split(",").tolist()
     sample_names = [item for sublist in sample_names for item in sublist]
     sample_names = list(set(sample_names))
     sample_names.sort()
 
-    SNP_seqs = [""] * len(sample_names)
+    positions = df["Position"].tolist()
+    unique_positions = df["Position"].unique().tolist()
 
-    pos = 0
-    for position in df['Position']:
-        print(pos)
-        # only keep SNPs of impact given in filter (LOW, MODERATE or HIGH)
-        sequences = df[df['Position'] == position]["SAMPLES"].str.split(",").tolist()
-        sequences = sequences[0]
+    SNP_array = np.empty([len(sample_names), len(unique_positions)], dtype='|S1')
 
+    # iterate over all positions, hence all SNPs
+    for position in positions:
+        # get samples that have this SNp at the given position
+        sequences = df[df['Position'] == position]["SAMPLES"].str.split(",").tolist()[0]
+        pos_in_uniq = unique_positions.index(position)
+
+        # get reference and alternative nucleotide
+        ref = df[df['Position'] == position]["REF_CONTENT"].values[0]
+        alt = df[df['Position'] == position]["ALT_CONTENT"].values[0]
+
+        # enter alternative or reference nucleotide into array for all samples
         for sample in sample_names:
             s = sample_names.index(sample)
             if sample in sequences:
-                nuc = df[df['Position'] == position]["ALT_CONTENT"]
-                SNP_seqs[s] += nuc
+                nuc = alt
             else:
-                nuc = df[df['Position'] == position]["REF_CONTENT"]
-                SNP_seqs[s] += nuc
-        pos += 1
+                nuc = ref
+            SNP_array[s][pos_in_uniq] = nuc
 
 
-    print("Mega file of SNP sequences was saved at " + path)
-"""
+    # convert array of chars into list of strings, one for each sample
+    SNP_strings = []
+    string_length = 'S' + str(len(unique_positions))
+    for seq in SNP_array:
+        seq = str(seq.view(string_length)[0])
+        seq = seq.split("b")[1].split("'")[1]
+        SNP_strings.append(seq)
+
+    # print SNP sequences to MEGA file
+    with open(file, 'w') as f:
+        print("#mega", file=f)
+        print("TITLE: Noninterleaved sequence data", file=f)
+        print(file=f)
+        s = 0
+        for sample in sample_names:
+            label = "#" + sample
+            print(label, file=f)
+            print(str(SNP_strings[s]), file=f)
+            s += 1
+
+
+    print("Mega file of SNP sequences was saved to " + file)
+
+
+def oldQuerydf_toMega(df, MLST_positions, file="oldQuery_full.meg"):
+
+    df = df[df['Position'].isin(map(str, MLST_positions))]
+
+    samples = list(df.columns)
+    samples.remove('Position')
+
+    # print SNP sequences to MEGA file
+    with open(file, 'w') as f:
+        print("#mega", file=f)
+        print("TITLE: Noninterleaved sequence data", file=f)
+        print(file=f)
+
+        # iterate over all positions, hence all SNPs
+        for sample in samples:
+            label = "#" + sample
+            print(label, file=f)
+
+            sampleSNPs = "".join(df[sample].tolist())
+            sampleSNPs = sampleSNPs.replace("-", ".")
+            print(sampleSNPs, file=f)
+
+    print("Mega file of SNP sequences was saved to " + file)
+
+
+def DBdf_toMega(df, MLST_positions, file="refDB_full.meg"):
+
+    df = df[df['Position'].isin(MLST_positions)].reset_index()
+    print(df)
+
+    samples = list(df.columns)
+    samples.remove('Position')
+
+    # print SNP sequences to MEGA file
+    with open(file, 'w') as f:
+        print("#mega", file=f)
+        print("TITLE: Noninterleaved sequence data", file=f)
+        print(file=f)
+
+        # iterate over all positions, hence all SNPs
+        for sample in samples:
+            label = "#" + sample
+            print(label, file=f)
+
+            sampleSNPs = "".join(df[sample].tolist())
+            sampleSNPs = sampleSNPs.replace("-", ".")
+            print(sampleSNPs, file=f)
+
+    print("Mega file of SNP sequences was saved to " + file)
+
+
+
+
 

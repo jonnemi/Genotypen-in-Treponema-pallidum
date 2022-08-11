@@ -97,9 +97,10 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
 
     # insert locus variant for all loci in loci_list into profiles dataframe
     l = 0
-    for loci in SNP_vec:
-        uniq = np.unique(loci, axis=0).tolist()
-        zipped = list(zip(ordered_names[l], loci))
+    for locus in SNP_vec:
+        uniq = np.unique(locus, axis=0).tolist()
+        print(uniq)
+        zipped = list(zip(ordered_names[l], locus))
         col_name = loci_list[l] + "_SNPs"
         loci_SNP_cols.append(col_name)
         df = pd.DataFrame(zipped, columns=['Name', col_name])
@@ -152,7 +153,7 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
 def compareMLST(tsvQuery, loci_list, new_format):
     # get loci training and test data set
     filter = ["MEDIUM", "HIGH"]
-    data = dataProcess.getLociDataset(tsvQuery, "snps.db", ".", loci_list, new_format, filter)
+    data = dataProcess.getLociDataset(tsvQuery, "snps.db", "string/none", loci_list, new_format, filter)
     print("dataset acquired")
 
     # create MLST for referene data set
@@ -169,6 +170,7 @@ def compareMLST(tsvQuery, loci_list, new_format):
     print("Query MLST done")
     print(query_profiles)
     print("Number of allelic profiles: " + str(len(query_profiles)))
+    print(query_profiles[query_profiles["Samples"].str.contains("Reference")])
 
     complete_count = query_profiles[~query_profiles['Allelic Profile'].str.contains("X")]
     print("Number of complete allelic profiles: " + str(len(complete_count)))

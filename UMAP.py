@@ -58,7 +58,7 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
     positions = query["Position"].tolist()
     seen = set()
     dupes = [x for x in positions if x in seen or seen.add(x)]
-    print("Duplicate SNP positions: " + str(dupes))
+    #print("Duplicate SNP positions: " + str(dupes))
 
     # check if MLST is wanted
     if loci:
@@ -82,9 +82,9 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
         query = query[query["Position"].isin(MLST_positions)].reset_index()
 
 
-    #dataProcess.SNPdf_toMega(query, "mega.txt")
+    #dataProcess.SNPdf_toMega(query, "all_moderate_high.meg")
 
-    """# create encoded SNP vector, with field for each SNP site using the given encoding
+    # create encoded SNP vector, with field for each SNP site using the given encoding
     process = dataProcess.newEncQuery(query, default_enc, positions)
     enc_2D = process["data"]
     sample_names = process["sample_names"]
@@ -233,8 +233,8 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
         print()
         c += 1
 
-    plt.show()"""
+    plt.show()
 
 
-queryUmap("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary")
+queryUmap("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
 
