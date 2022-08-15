@@ -27,9 +27,6 @@ def compare(tsvFile, filter, default_enc, loci=list()):
 
     # get all positions as list
     positions = query["Position"].tolist()
-    seen = set()
-    dupes = [x for x in positions if x in seen or seen.add(x)]
-    #print("Duplicate SNP positions: " + str(dupes))
 
     # check if MLST is wanted
     if loci:
@@ -71,7 +68,7 @@ def compare(tsvFile, filter, default_enc, loci=list()):
 
     # process umap dimension reduction with kMeans
     umap_df = pd.DataFrame(
-        {'umap_1': transform[:, 0], 'umap_2': transform[:, 1],
+        {'UMAP_1': transform[:, 0], 'UMAP_2': transform[:, 1],
          'label': sample_names})
 
 
@@ -89,29 +86,29 @@ def compare(tsvFile, filter, default_enc, loci=list()):
 
 
 
-    fig, ax = plt.subplots(1)
-    sns.scatterplot(x='umap_1', y='umap_2', data=umap_df, ax=ax, s=5, hue='K-means_cluster')
-    ax.set_aspect('equal')
+    fig, ax = plt.subplots(1, 2)
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=umap_df, ax=ax[0], s=5, hue='K-means_cluster', palette='colorblind')
+    ax[0].legend([], [], frameon=False)
 
     # fit TSNE as compairson to UMAP
     fit = TSNE(
         perplexity=30,
         initialization="pca",
-        metric="hamming",
+        metric="manhattan",
         n_jobs=8,
         random_state=3,
         verbose=True,
     ).fit(enc_2D)
 
     tsne_df = umap_df.copy()
-    tsne_df['tsne_1'] = fit[:, 0]
-    tsne_df['tsne_2'] = fit[:, 1]
+    tsne_df['tSNE_1'] = fit[:, 0]
+    tsne_df['tSNE_2'] = fit[:, 1]
 
-    fig, ax = plt.subplots(1)
-    sns.scatterplot(x='tsne_1', y='tsne_2', data=tsne_df, ax=ax, s=5, hue='K-means_cluster')
-    ax.set_aspect('equal')
-    ax.set_aspect('equal')
-    ax.legend([], [], frameon=False)
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=tsne_df, ax=ax[1], s=5, hue='K-means_cluster', palette='colorblind')
+    ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='K-means cluster')
+    plt.subplots_adjust(wspace=0.5)
+    plt.tight_layout()
+
 
     plt.show()
 

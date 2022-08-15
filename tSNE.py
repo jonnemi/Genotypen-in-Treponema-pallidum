@@ -193,11 +193,15 @@ def querytSNE(tsvFile, filter, default_enc):
     query = query[query['ALT_CONTENT'].str.len() == 1 & ~query['ALT_CONTENT'].str.contains("-")]
     query.reset_index()
 
+    # filter for impact
+    query['IMPACT'] = query["INFO"].apply(lambda x: x.split("IMPACT=")[1].split(",")[0])
+    query = query[query["IMPACT"].isin(filter)].reset_index()
+
     # get all positions as list
     positions = query["Position"].tolist()
 
     # create encoded SNP vector, with field for each SNP site using one-hot encoding
-    process = dataProcess.newEncQuery(query, default_enc, positions, filter)
+    process = dataProcess.newEncQuery(query, default_enc, positions)
     enc_2D = process["data"]
     sample_names = process["sample_names"]
 
@@ -207,10 +211,11 @@ def querytSNE(tsvFile, filter, default_enc):
         metric="hamming",
         n_jobs=8,
         random_state=3,
-    ).fit.transform(enc_2D)
+        verbose=True,
+    ).fit(enc_2D)
 
     tsne_df = pd.DataFrame(
-        {'umap_1': fit[:, 0], 'umap_2': fit[:, 1],
+        {'tsne_1': fit[:, 0], 'tsne_2': fit[:, 1],
          'label': sample_names})
 
     fig, ax = plt.subplots(1)
@@ -219,4 +224,4 @@ def querytSNE(tsvFile, filter, default_enc):
     ax.legend([],[], frameon=False)
     plt.show()
 
-querytSNE("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], [0, 0, 0, 0, 1])
+querytSNE("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "one-hot")

@@ -14,16 +14,19 @@ def encodeNuc(nuc, encoding):
     if encoding == "string/none":
         enc = nuc
     elif encoding == "binary":
-        enc = 1
+        if nuc != ".":
+            enc = 1
+        else:
+            enc = 0
     elif encoding == "one-hot":
         one_hot_enc = [0] * 5
         one_hot_enc[i] = 1
-        renc = one_hot_enc
+        enc = one_hot_enc
     else:
         if i == 5:
             i = 4
         enc = i
-    return nuc
+    return enc
 
 def getSNPdf(db_name):
     # get tSNE input data from snp database
@@ -153,12 +156,15 @@ def newEncQuery(df, encoding, common_pos):
     elif encoding == "one-hot":
         default_enc = [0, 0, 0, 0, 1]
         enc_len = len(default_enc)
+        common_pos = list(set(common_pos))
     elif encoding == "integer":
         default_enc = 4
         enc_len = 1
+        common_pos = list(set(common_pos))
     elif encoding == "string/none":
         default_enc = "."
         enc_len = len(default_enc)
+        common_pos = list(set(common_pos))
     else:
         raise ValueError('Please specify encoding: (binary, one-hot, integer, string/none')
 
@@ -167,12 +173,16 @@ def newEncQuery(df, encoding, common_pos):
     sample_names = list(set(sample_names))
     sample_names.sort()
 
-    # create vector query SNPs, with field for each SNP site (reference_GenWidePos)
-    eval_3D = np.full((len(sample_names) + 1, len(common_pos), enc_len), default_enc)
+    position_len = len(common_pos)
 
+    # create vector query SNPs, with field for each SNP site (reference_GenWidePos)
+    eval_3D = np.full((len(sample_names) + 1, position_len, enc_len), default_enc)
+    f = []
     for position in df['Position']:
         # only keep SNPs of impact given in filter (LOW, MODERATE or HIGH)
         pos = common_pos.index(position)
+        if encoding == "binary":
+            common_pos[pos] = -1
         sequences = df[df['Position'] == position]["SAMPLES"].str.split(",").tolist()
         sequences = sequences[0]
 
@@ -188,7 +198,7 @@ def newEncQuery(df, encoding, common_pos):
         pos += 1
 
     # add vector for Reference containing only default symbols
-    for c in range(len(common_pos) - 1):
+    for c in range(position_len - 1):
         eval_3D[len(sample_names)][c] = default_enc
     sample_names.append('Reference')
 

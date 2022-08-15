@@ -44,7 +44,7 @@ def tSNE_KMeans(tSNE_tsv):
 #tSNE_KMeans("tSNE.tsv")
 
 def UMAP_KMeans(umap_df):
-    data = umap_df[['umap_1', 'umap_2']]
+    data = umap_df[['UMAP_1', 'UMAP_2']]
     sample_names = umap_df['label']
 
     # run k-Means with a range of k
@@ -58,7 +58,7 @@ def UMAP_KMeans(umap_df):
     # elbow can be observed for k=3, fit model for k=3
     knee = KneeLocator(K, distortions, S=1, curve='convex', direction='decreasing', interp_method='polynomial')
     k = K[knee.knee]
-    knee.plot_knee()
+    #knee.plot_knee()
 
     kmeanModel = KMeans(n_clusters=k)
     kmeanModel.fit(data)
@@ -66,14 +66,14 @@ def UMAP_KMeans(umap_df):
     umap_df['K-means_cluster'] = kmeanModel.predict(data)
 
     # plot k-Means clustering of tSNE
-    fig, ax = plt.subplots(1)
-    sns.scatterplot(x='umap_1', y='umap_2', hue='K-means_cluster', data=umap_df, ax=ax, s=5, palette='Dark2_r')
+    """fig, ax = plt.subplots(1)
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', hue='K-means_cluster', data=umap_df, ax=ax, s=5, palette='Dark2_r')
     ax.set_aspect('equal')
     ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
-    fig.tight_layout()
+    fig.tight_layout()"""
 
     # create dataframe with with cluster number and cluster center location
-    cluster_centers = pd.DataFrame(kmeanModel.cluster_centers_, columns=['umap_1', 'umap_2'])
+    cluster_centers = pd.DataFrame(kmeanModel.cluster_centers_, columns=['UMAP_1', 'UMAP_2'])
     cluster_centers['K-means_cluster'] = list(range(0, k))
 
     cluster_seqs = umap_df.groupby('K-means_cluster', as_index=False)['label'].apply(', '.join)
