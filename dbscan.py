@@ -60,15 +60,16 @@ def tSNE_DBSCAN(tSNE_tsv):
 
 def UMAP_DBSCAN(umap_df):
     # read tSNE data from file
-    data = umap_df[['umap_1', 'umap_2']]
+    data = umap_df[['UMAP_1', 'UMAP_2']]
     sample_names = umap_df['label']
+    min_samples = 10
 
     # find optimal epsilon for dbscan with elbow method
-    nearest_neighbors = NearestNeighbors(n_neighbors=11)
+    nearest_neighbors = NearestNeighbors(n_neighbors=min_samples)
     neighbors = nearest_neighbors.fit(data)
 
     distances, indices = neighbors.kneighbors(data)
-    distances = np.sort(distances[:, 10], axis=0)
+    distances = np.sort(distances[:, min_samples-1], axis=0)
 
     # find elbow/knee with kneed
     i = np.arange(len(distances))
@@ -79,13 +80,15 @@ def UMAP_DBSCAN(umap_df):
     plt.ylabel("Distance")
 
     epsilon = distances[knee.knee]
+    print(epsilon)
 
-    dbscan_cluster1 = DBSCAN(eps=epsilon)
+    dbscan_cluster1 = DBSCAN(eps=0.9, min_samples=3)
+    #dbscan_cluster1 = DBSCAN(eps=epsilon, min_samples=min_samples)
     dbscan_cluster1.fit(data)
 
     # Visualizing DBSCAN
     fig, ax = plt.subplots(1)
-    sns.scatterplot(x=data['umap_1'], y=data['umap_2'], hue=dbscan_cluster1.labels_, ax=ax, s=5, palette='Dark2_r')
+    sns.scatterplot(x=data['UMAP_1'], y=data['UMAP_2'], hue=dbscan_cluster1.labels_, ax=ax, s=5, palette='colorblind')
     ax.set_aspect('equal')
     ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
     fig.tight_layout()

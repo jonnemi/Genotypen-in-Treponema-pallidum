@@ -49,7 +49,7 @@ def UMAP_KMeans(umap_df):
 
     # run k-Means with a range of k
     distortions = []
-    K = range(1, 20)
+    K = range(1, 100)
     for k in K:
         kmeanModel = KMeans(n_clusters=k)
         kmeanModel.fit(data)

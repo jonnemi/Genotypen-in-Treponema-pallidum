@@ -8,6 +8,7 @@ import os
 import kMeans
 from openTSNE import TSNE
 import ast
+import dbscan
 
 
 
@@ -35,16 +36,7 @@ def compare(tsvFile, filter, default_enc, loci=list()):
         # create list of MLST loci SNP positions
         MLST_loci = loci_df[loci_df['locus_tag'].isin(loci)]
         MLST_positions = []
-        MLST_loci["var sites"].apply(lambda x: MLST_positions.extend(x))
-
-        rRNA_R8_v1 = 235204
-        rRNA_R9_v1 = 235205
-        rRNA_R8_v2 = 283649
-        rRNA_R9_v2 = 283650
-
-        rRNA_pos = [rRNA_R8_v1, rRNA_R9_v1, rRNA_R8_v2, rRNA_R9_v2]
-
-        MLST_positions.extend(rRNA_pos)
+        MLST_loci["var sites"].apply(lambda x: MLST_positions.extend(list(range(min(x) + 1, max(x) + 1))))
         MLST_positions.sort()
 
         query = query[query["Position"].isin(MLST_positions)].reset_index()
@@ -67,28 +59,26 @@ def compare(tsvFile, filter, default_enc, loci=list()):
     transform = reducer.fit_transform(enc_2D)
 
     # process umap dimension reduction with kMeans
-    umap_df = pd.DataFrame(
+    ML_df = pd.DataFrame(
         {'UMAP_1': transform[:, 0], 'UMAP_2': transform[:, 1],
          'label': sample_names})
 
+    DBSCAN = dbscan.UMAP_DBSCAN(ML_df)
 
-    # define clusters in UMAP projection using k-means
-    k_Means = kMeans.UMAP_KMeans(umap_df)
+    """# define clusters in UMAP projection using k-means
+    k_Means = kMeans.UMAP_KMeans(ML_df)
 
     # dataframe holding kMeans cluster label for each sequence
     sample_clustering = pd.DataFrame(sample_names, columns=['sample_names'])
-    sample_clustering['cluster'] = -1
+    sample_clustering['k-Means_cluster'] = -1
     c = 0
     for cluster in k_Means['cluster_sequences']:
         cluster = [x.replace(" ", "") for x in cluster]
-        sample_clustering.loc[sample_clustering['sample_names'].isin(cluster), ['cluster']] = c
+        sample_clustering.loc[sample_clustering['sample_names'].isin(cluster), ['k-Means_cluster']] = c
         c += 1
 
+    
 
-
-    fig, ax = plt.subplots(1, 2)
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=umap_df, ax=ax[0], s=5, hue='K-means_cluster', palette='colorblind')
-    ax[0].legend([], [], frameon=False)
 
     # fit TSNE as compairson to UMAP
     fit = TSNE(
@@ -100,17 +90,31 @@ def compare(tsvFile, filter, default_enc, loci=list()):
         verbose=True,
     ).fit(enc_2D)
 
-    tsne_df = umap_df.copy()
-    tsne_df['tSNE_1'] = fit[:, 0]
-    tsne_df['tSNE_2'] = fit[:, 1]
+    ML_df['tSNE_1'] = fit[:, 0]
+    ML_df['tSNE_2'] = fit[:, 1]"""
+    return ML_df
 
-    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=tsne_df, ax=ax[1], s=5, hue='K-means_cluster', palette='colorblind')
+def plotCompare(df, title):
+    fig, ax = plt.subplots(1, 2)
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=df, ax=ax[0], s=5, hue='K-means_cluster', palette='colorblind')
+    ax[0].legend([], [], frameon=False)
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=df, ax=ax[1], s=5, hue='K-means_cluster', palette='colorblind')
     ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='K-means cluster')
     plt.subplots_adjust(wspace=0.5)
     plt.tight_layout()
+    fig.suptitle(title)
 
 
-    plt.show()
 
+df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary")
+#plotCompare(df, "UMAP vs. tSNE")
 
-compare("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary")
+MLST_df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
+"""plotCompare(MLST_df, "MLST UMAP vs. MLST tSNE")
+
+comp_df = df.copy()
+comp_df = comp_df.drop('K-means_cluster', axis=1)
+comp_df = pd.merge(comp_df, MLST_df[['label', 'K-means_cluster']], on='label', how='inner')
+plotCompare(comp_df, "UMAP vs. tSNE with MLST labels")"""
+
+plt.show()

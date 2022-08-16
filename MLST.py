@@ -9,6 +9,7 @@ import ast
 import os
 import dataProcess
 import difflib
+import csv
 
 
 def getRefLoci(genome_record):
@@ -17,7 +18,7 @@ def getRefLoci(genome_record):
     for feature in genome_record.features:
         if feature.type == "CDS":
             feature_data = {"locus_tag": feature.qualifiers["locus_tag"][0],
-                            "location": list(feature.location),
+                            "location": feature.location,
                             "product": feature.qualifiers["product"][0]}
             data.append(feature_data)
     loci = pd.DataFrame(data)
@@ -34,13 +35,7 @@ def lociSNVdensity(loci_df):
     sql_command = "SELECT reference_GenWidePos FROM unambiguous ORDER BY reference_GenWidePos;"
     cursor.execute(sql_command)
     content = cursor.fetchall()
-    sites = list()
-    for pos in content:
-        sites.append(pos[0])
-    conn.close()
-
-    loci_df["var sites"] = loci_df['location'].map(lambda x: np.intersect1d(x, sites))
-    site_count = Counter(sites)
+    loci_df["var sites"] = loci_df['location'].apply(lambda x: [list(x)[0], list(x)[-1]])
     loci_df["var site count"] = loci_df["var sites"].str.len()
     loci_df["length"] = loci_df["location"].str.len()
     loci_df["SNV density"] = round(loci_df["var site count"] / loci_df["length"], 5)
@@ -48,7 +43,6 @@ def lociSNVdensity(loci_df):
     sort_df = loci_df.sort_values("SNV density", ascending=False).drop(columns=['location'])
     cols = ["locus_tag", "var site count", "length", "SNV density", "product", 'var sites']
     sort_df = sort_df[cols]
-    sort_df["var sites"] = sort_df["var sites"].apply(lambda x: x.tolist())
     # save MLST dataframe to file
     sort_df.to_csv("loci.tsv", sep='\t')
 
@@ -74,20 +68,31 @@ def querySNVdensity(loci_df):
 
 
 def rRNAtype(seq_list):
-    type_counts = dict.fromkeys(['NA', 'Sensitive', 'R8', 'R9'], 0)
+    type_counts = dict.fromkeys(['NA', 'S', 'R8', 'R9'], 0)
     for sequence in seq_list:
-        if type(sequence) is np.ndarray:
-            if sequence[0] == "g" or sequence[2] == "g":
+        if sequence is None:
+            type_counts['NA'] += 1
+        else:
+            sequence = sequence[0].tolist()
+            if 2105 in sequence or 5058 in sequence:
                 type_counts['R8'] += 1
-            elif sequence[1] == "g" or sequence[3] == "g":
+            elif 2106 in sequence or 5059 in sequence:
                 type_counts['R9'] += 1
             else:
-                type_counts['Sensitive'] += 1
-        else:
-            type_counts['NA'] += 1
+                type_counts['S'] += 1
+
     total = sum(type_counts.values(), 0.0)
     type_counts = {k: round(v / total, 2) for k, v in type_counts.items()}
-    return type_counts
+    type_counts = {x:y for x,y in type_counts.items() if y!=0.0}
+
+    if len(type_counts) > 1:
+        return_string = ""
+        for key, value in type_counts.items():
+            return_string += key + " (" + str(round(value * 100)) + "%)/"
+        return_string = return_string[:-1]
+    else:
+        return_string = next(iter(type_counts))
+    return return_string
 
 
 def MLST(SNP_vec, ordered_names, all_names, loci_list):
@@ -99,7 +104,6 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
     l = 0
     for locus in SNP_vec:
         uniq = np.unique(locus, axis=0).tolist()
-        print(uniq)
         zipped = list(zip(ordered_names[l], locus))
         col_name = loci_list[l] + "_SNPs"
         loci_SNP_cols.append(col_name)
@@ -115,10 +119,10 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
     # create new column holding allelic profiles
     subset = loci_list.copy()
     subset.remove("23S rRNA")
-    profiles['Allelic Profile'] = profiles[subset].astype(str).agg('.'.join, axis=1)
 
     # change NaN entries to X in allelic profile
-    profiles['Allelic Profile'] = profiles['Allelic Profile'].astype('str').apply(lambda x: x.replace("<NA>", "X"))
+    profiles[subset] = profiles[subset].astype('str').apply(lambda x: x.replace("<NA>", "X"))
+    profiles['Allelic Profile'] = profiles[subset].astype(str).agg('.'.join, axis=1)
 
     # add column SNP vectors that holds a tuple of all loci SNP vectors defining the allelic profile
     profiles['SNP vectors'] = profiles[loci_SNP_cols].apply(list, axis=1)
@@ -130,9 +134,11 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
     profiles['Samples'] = profiles['Allelic Profile'].map(sample_mapping.set_index('Allelic Profile')['Name'])
 
     # reshape column 23S rRNA_SNPs column to hold all 23S rRNA SNPs for each allelic profile
+    profiles['23S rRNA_SNPs'] = profiles['23S rRNA_SNPs'].where(pd.notnull(profiles['23S rRNA_SNPs']), None)
+    profiles['23S rRNA_SNPs'] = profiles['23S rRNA_SNPs'].apply(lambda x: x if x is None else np.where(x == "g"))
     rRNA_mapping =  profiles.groupby(['Allelic Profile'])['23S rRNA_SNPs'].apply(list).reset_index(name='23S rRNA_SNPs')
     profiles['23S rRNA_SNPs'] = profiles['Allelic Profile'].map(rRNA_mapping.set_index('Allelic Profile')['23S rRNA_SNPs'])
-    #profiles['23S rRNA'] = profiles['23S rRNA_SNPs'].apply(lambda x: rRNAtype(x))
+    profiles['23S rRNA'] = profiles['23S rRNA_SNPs'].apply(lambda x: rRNAtype(x))
 
     # drop duplicate rows in profiles
     profiles = profiles.drop_duplicates(subset=subset)
@@ -150,25 +156,40 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
     return profiles
 
 
-def compareMLST(tsvQuery, loci_list, new_format):
+def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     # get loci training and test data set
-    filter = ["MEDIUM", "HIGH"]
     data = dataProcess.getLociDataset(tsvQuery, "snps.db", "string/none", loci_list, new_format, filter)
     print("dataset acquired")
 
     # create MLST for referene data set
     ref_profiles = MLST(data['train'], data['train_seq_names'], data['all_train_names'], loci_list)
+    ref_profiles = ref_profiles.sort_values("Allelic Profile").reset_index(drop=True)
     print("Reference MLST done")
     print(ref_profiles)
     print("Number of allelic profiles: " + str(len(ref_profiles)))
+
+    cols = ["Allelic Profile"]
+    cols.extend(loci_list)
+    cols.extend(["No. of samples"])
+    print_ref_profiles = ref_profiles[cols]
+    print_ref_profiles.to_csv('ref_MLST.csv', index=False)
 
     complete_count = ref_profiles[~ref_profiles['Allelic Profile'].str.contains("X")]
     print("Number of complete allelic profiles: " + str(len(complete_count)))
 
     # create MLST for query data set
     query_profiles = MLST(data['test'], data['test_seq_names'], data['all_test_names'], loci_list)
+    query_profiles = query_profiles.sort_values("Allelic Profile").reset_index(drop=True)
     print("Query MLST done")
     print(query_profiles)
+
+    print_query_profiles = query_profiles[cols]
+    if new_format and not filter:
+        print_query_profiles = print_query_profiles[print_query_profiles["No. of samples"] > 2]
+    print("Allelic profiles representing " + str(round(print_query_profiles["No. of samples"].sum() * 100 /query_profiles["No. of samples"].sum()))
+          + "% of samples written to file.")
+    print_query_profiles.to_csv('query_MLST.csv', index=False)
+
     print("Number of allelic profiles: " + str(len(query_profiles)))
     print(query_profiles[query_profiles["Samples"].str.contains("Reference")])
 
@@ -190,7 +211,7 @@ def compareMLST(tsvQuery, loci_list, new_format):
     #print(len(intersect))
 
 
-# genome_record = SeqIO.read("NC_021490.2.gb", "genbank")
-# lociSNVdensity(getRefLoci(genome_record))
+#genome_record = SeqIO.read("NC_021490.2.gb", "genbank")
+#lociSNVdensity(getRefLoci(genome_record))
 #compareMLST("variantContentTable.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
-compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True)
+compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["MEDIUM", "HIGH"])

@@ -93,7 +93,7 @@ def encDF(df, encoding, common_pos):
             seq = sequences.index(row["Sequence_name"])
             pos = common_pos.index(row["Position"])
 
-            enc_entry = encodeNuc(row["SNP"], default_enc)
+            enc_entry = encodeNuc(row["SNP"], encoding)
             vec_3D[seq][pos] = enc_entry
 
             reference_3D[0][pos] = default_enc #encodeNuc(row["Reference"], encoding)
@@ -122,6 +122,9 @@ def encQuery(df, encoding, common_pos):
     else:
         raise ValueError('Please specify encoding: (binary, one-hot, integer, string/none')
 
+    # drop all columns aka samples with no SNPs
+    df = df.drop(columns=df.columns[(df == '.').all()])
+
     sample_names = list(df.columns)
     sample_names.remove('Position')
     sample_names.remove('Reference')
@@ -141,12 +144,13 @@ def encQuery(df, encoding, common_pos):
     # add vector for Reference containing only default symbols
     for c in range(len(common_pos) - 1):
         eval_3D[s][c] = default_enc
-
+    sample_names.append('Reference')
 
     # reshape training vector from 3D to 2D
     sample, position, one_hot_enc = eval_3D.shape
     eval_2D = eval_3D.reshape((sample, position * one_hot_enc))
-    return eval_2D
+    query = {'data': eval_2D, 'sample_names': sample_names}
+    return query
 
 
 def newEncQuery(df, encoding, common_pos):
@@ -273,20 +277,24 @@ def getADAdataset(tsvFile, db_name, default_enc):
     return dataset
 
 
-def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter):
+def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter=[]):
     # load loci dataframe
     loci_df = pd.read_csv("loci.tsv", sep='\t', converters={"var sites": ast.literal_eval})
+
     # create list of MLST loci SNP positions
     MLST_loci = loci_df[loci_df['locus_tag'].isin(loci_list)]
     MLST_positions = []
-    MLST_loci["var sites"].apply(lambda x: MLST_positions.append(x))
+    MLST_loci["var sites"].apply(lambda x: MLST_positions.append(list(range(min(x) + 1, max(x) + 1))))
 
-    rRNA_R8_v1 = 235204
-    rRNA_R9_v1 = 235205
-    rRNA_R8_v2 = 283649
-    rRNA_R9_v2 = 283650
+    # manually add 23S rRNA gene positions (gene is duplicated), because locus isn't listed in loci.tsv
+    rRNA_start_1 = 233099
+    rRNA_end_1 = 236051
+    rRNA_start_2 = 281544
+    rRNA_end_2 = 284496
 
-    rRNA_pos = [rRNA_R8_v1, rRNA_R9_v1, rRNA_R8_v2, rRNA_R9_v2]
+
+    rRNA_pos = list(range(rRNA_start_1, rRNA_end_1 + 1))
+    rRNA_pos.extend(list(range(rRNA_start_2, rRNA_end_2 + 1)))
 
     MLST_positions.append(rRNA_pos)
     for x in MLST_positions:
@@ -307,8 +315,11 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
         query = query.drop(columns=['BosniaA', 'Fribourg', 'CDC2', 'GHA1', 'Gauthier', 'IND1', 'SAM1', 'SamoaD'])
         position_col = 'Position'
 
+        query = query.replace("-", ".")
+
         all_sample_names = list(query.columns)
         all_sample_names.remove(position_col)
+
 
         # print query SNPs to .meg file
         #oldQuerydf_toMega(query, flat_MLST)
@@ -316,6 +327,16 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
         if os.path.isfile(tsvFile):
             query = pd.read_csv(tsvFile, sep='\t', header=0)
         query.rename(columns = {'POSITION':'Position'}, inplace = True)
+
+        # remove all indel rows from dataframe
+        query = query[query['ALT_CONTENT'].str.len() == 1 & ~query['ALT_CONTENT'].str.contains("-")]
+        query.reset_index()
+
+        # filter for impact
+        if filter:
+            query['IMPACT'] = query["INFO"].apply(lambda x: x.split("IMPACT=")[1].split(",")[0])
+            query = query[query["IMPACT"].isin(filter)].reset_index()
+
         query['Position'] = query['Position'].astype(str)
         all_sample_names = query["SAMPLES"].apply(lambda x: x.split(",")).tolist()
         all_sample_names = [item for sublist in all_sample_names for item in sublist]
@@ -330,6 +351,7 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
     # create vector of SNPs, with field for each locus SNP site
     for locus in MLST_positions:
         # remove all rows from dataframes that don't have common reference genome position for SNP
+        # samples where the whole locus is missing will later have an X in the allelic profile
         locus_query = query[query['Position'].isin(map(str, locus))]
         locus_query['Position'] = pd.to_numeric(locus_query['Position'])
         locus_query.reset_index()
@@ -346,12 +368,13 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter)
         train_2D = encDF(locus_SNPdf, default_enc, locus)
         if new_format:
             test_process = newEncQuery(locus_query, default_enc, locus)
-            test_2D = test_process["data"]
-            names = test_process["sample_names"]
-            sample_names.append(names)
         else:
-            test_2D = encQuery(locus_query, default_enc, locus)
-            sample_names.append(all_sample_names)
+            test_process = encQuery(locus_query, default_enc, locus)
+
+        test_2D = test_process["data"]
+        names = test_process["sample_names"]
+        sample_names.append(names)
+
         train_loci.append(train_2D)
         test_loci.append(test_2D)
 
