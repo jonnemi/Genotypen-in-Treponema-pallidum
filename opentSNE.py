@@ -8,6 +8,70 @@ import seaborn as sns
 from openTSNE import TSNE
 import dataProcess
 
+def adaTSNE(queryTSV, db_name):
+    dataset = dataProcess.getADAdataset(queryTSV, db_name, "one-hot")
+    strains = dataProcess.assignStrains(dataset['test_seq_names'])
+
+    # first tSNE using only query data
+    tsne1 = TSNE(
+        perplexity=30,
+        initialization="pca",
+        metric="manhattan",
+        n_jobs=8,
+        random_state=3,
+        verbose=True,
+    )
+    reducer1 = tsne1.fit(dataset["test"])
+    only_query = reducer1.transform(dataset["test"])
+
+    only_query_df = pd.DataFrame(
+        {'tSNE_1': only_query[:, 0], 'tSNE_2': only_query[:, 1],
+         'label': dataset['test_seq_names']})
+    only_query_df["strain"] = strains
+
+    # second tSNE trained on reference genomes with embedded query data
+    tsne2 = TSNE(
+        perplexity=30,
+        initialization="pca",
+        metric="manhattan",
+        n_jobs=8,
+        random_state=3,
+        verbose=True,
+    )
+    reducer2 = tsne2.fit(dataset["train"])
+    train = reducer2.transform(dataset["train"])
+    test = reducer2.transform(dataset["test"])
+    train_df = pd.DataFrame(
+        {'tSNE_1': train[:, 0], 'tSNE_2': train[:, 1],
+         'label': dataset['train_seq_names']})
+    test_df = pd.DataFrame(
+        {'tSNE_1': test[:, 0], 'tSNE_2': test[:, 1],
+         'label': dataset['test_seq_names']})
+    test_df["strain"] = strains
+
+
+    # plot both UMAPs side by side
+    fig, ax = plt.subplots(1, 2)
+    fig.subplots_adjust(top=0.8)
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=only_query_df, ax=ax[0], s=5, hue='strain',
+                    style='strain', markers=["D", "v"])
+    ax[0].set_title("Nur Query-Daten")
+    ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
+    #ax[0].set_aspect('equal')
+
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=train_df, ax=ax[1], s=5, alpha=0.5, color='black')
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', hue='strain', data=test_df, ax=ax[1], s=5, style='strain',
+                    markers=["D", "v"])
+    ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
+    # ax[1].legend([], [], frameon=False)
+    ax[1].set_title("Referenz-tSNE mit Query-Daten")
+    #ax[1].set_aspect('equal')
+    plt.subplots_adjust(wspace=0.5)
+    plt.tight_layout()
+    fig.suptitle("tSNE Vergleich", y=0.98)
+    plt.show()
+
+adaTSNE("variantContentTable.tsv", "snps.db")
 
 def encodeNuc(nuc):
     enc = ["a", "c", "g", "t", ".", "-"]
@@ -213,11 +277,11 @@ class snpTSNE:
         plt.show()
 
 
-test = snpTSNE("snps.db")
+#
 # test.embedQuery("PT_SIF0908.variants.tsv")
 # test.multembedTSNE("variantContentTable.tsv")
 # test.testDataTSNE("variantContentTable.tsv")
-test.adaptTSNE("variantContentTable.tsv")
+#test.adaptTSNE("variantContentTable.tsv")
 
 def MLSTtSNE(tsvFile):
     dataset = dataProcess.getLociDataset(tsvFile, "snps.db", [0, 0, 0, 0, 1],

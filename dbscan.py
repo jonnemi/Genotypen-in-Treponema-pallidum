@@ -58,10 +58,8 @@ def tSNE_DBSCAN(tSNE_tsv):
 #tSNE_DBSCAN("tSNE.tsv")
 
 
-def UMAP_DBSCAN(umap_df):
-    # read tSNE data from file
-    data = umap_df[['UMAP_1', 'UMAP_2']]
-    sample_names = umap_df['label']
+def DBSCAN_cluster(df):
+    data = df.iloc[:, 0:2]
     min_samples = 10
 
     # find optimal epsilon for dbscan with elbow method
@@ -75,32 +73,28 @@ def UMAP_DBSCAN(umap_df):
     i = np.arange(len(distances))
     knee = KneeLocator(i, distances, S=1, curve='convex', direction='increasing', interp_method='polynomial')
 
-    knee.plot_knee()
-    plt.xlabel("Points")
-    plt.ylabel("Distance")
+    #knee.plot_knee()
+    #plt.xlabel("Points")
+    #plt.ylabel("Distance")
 
     epsilon = distances[knee.knee]
-    print(epsilon)
 
     dbscan_cluster1 = DBSCAN(eps=0.9, min_samples=3)
     #dbscan_cluster1 = DBSCAN(eps=epsilon, min_samples=min_samples)
     dbscan_cluster1.fit(data)
 
-    # Visualizing DBSCAN
-    fig, ax = plt.subplots(1)
-    sns.scatterplot(x=data['UMAP_1'], y=data['UMAP_2'], hue=dbscan_cluster1.labels_, ax=ax, s=5, palette='colorblind')
-    ax.set_aspect('equal')
-    ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
-    fig.tight_layout()
-
     # Number of Clusters
     labels = dbscan_cluster1.labels_
     N_clus = len(set(labels)) - (1 if -1 in labels else 0)
-    print('Estimated no. of clusters: %d' % N_clus)
 
-    # Identify Noise
-    n_noise = list(dbscan_cluster1.labels_).count(-1)
-    print('Estimated no. of noise points: %d' % n_noise)
+    df['cluster'] = labels
 
-    # Calculating v_measure
-    print('v_measure =', v_measure_score(umap_df['label'], labels))
+    cluster_centers = pd.DataFrame(set(labels), columns=['cluster'])
+
+    cluster_seqs = df.groupby('cluster', as_index=False)['label'].apply(', '.join)
+    cluster_centers['cluster_sequences'] = cluster_centers['cluster'].map(
+        cluster_seqs.set_index('cluster')['label'])
+    cluster_centers['cluster_sequences'] = cluster_centers['cluster_sequences'].str.split(",")
+    cluster_centers['size'] = cluster_centers['cluster_sequences'].apply(lambda x: len(x))
+
+    return cluster_centers

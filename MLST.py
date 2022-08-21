@@ -159,46 +159,63 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
 def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     # get loci training and test data set
     data = dataProcess.getLociDataset(tsvQuery, "snps.db", "string/none", loci_list, new_format, filter)
-    print("dataset acquired")
+    print("Dataset acquired")
+    print("----------------------------------------------------------------------------")
 
     # create MLST for referene data set
     ref_profiles = MLST(data['train'], data['train_seq_names'], data['all_train_names'], loci_list)
-    ref_profiles = ref_profiles.sort_values("Allelic Profile").reset_index(drop=True)
-    print("Reference MLST done")
+    ref_profiles['sort'] = ref_profiles['TPANIC_RS00695']
+    ref_profiles['sort'] = ref_profiles['sort'].replace("X", "10000")
+    ref_profiles['sort'] = pd.to_numeric(ref_profiles['sort'])
+    ref_profiles = ref_profiles.sort_values('sort').reset_index(drop=True)
+    print("Reference MLST:")
     print(ref_profiles)
     print("Number of allelic profiles: " + str(len(ref_profiles)))
-
     cols = ["Allelic Profile"]
     cols.extend(loci_list)
     cols.extend(["No. of samples"])
+    #cols = ['Allelic Profile', 'Samples']
     print_ref_profiles = ref_profiles[cols]
     print_ref_profiles.to_csv('ref_MLST.csv', index=False)
 
     complete_count = ref_profiles[~ref_profiles['Allelic Profile'].str.contains("X")]
     print("Number of complete allelic profiles: " + str(len(complete_count)))
+    print("Total number of samples: " + str(ref_profiles['No. of samples'].sum()))
+
+    print()
+    print("----------------------------------------------------------------------------")
+    print()
 
     # create MLST for query data set
     query_profiles = MLST(data['test'], data['test_seq_names'], data['all_test_names'], loci_list)
-    query_profiles = query_profiles.sort_values("Allelic Profile").reset_index(drop=True)
-    print("Query MLST done")
+    query_profiles['sort1'] = query_profiles['TPANIC_RS00695']
+    query_profiles['sort1'] = query_profiles['sort1'].replace("X", "10000")
+    query_profiles['sort1'] = pd.to_numeric(query_profiles['sort1'])
+    query_profiles['sort2'] = query_profiles['TPANIC_RS02695']
+    query_profiles['sort2'] = query_profiles['sort2'].replace("X", "10000")
+    query_profiles['sort2'] = pd.to_numeric(query_profiles['sort2'])
+    query_profiles = query_profiles.sort_values(['sort1', 'sort2']).reset_index(drop=True)
+    print("Query MLST:")
     print(query_profiles)
 
-    print_query_profiles = query_profiles[cols]
-    if new_format and not filter:
-        print_query_profiles = print_query_profiles[print_query_profiles["No. of samples"] > 2]
-    print("Allelic profiles representing " + str(round(print_query_profiles["No. of samples"].sum() * 100 /query_profiles["No. of samples"].sum()))
-          + "% of samples written to file.")
+    print_query_profiles = query_profiles.copy()
+    if new_format:
+        print_query_profiles = print_query_profiles[print_query_profiles["No. of samples"] > 4]
+        #print_query_profiles = print_query_profiles[print_query_profiles["No. of samples"] <= 20]
+        print("Allelic profiles representing " + str(round(print_query_profiles["No. of samples"].sum() * 100 /query_profiles["No. of samples"].sum()))
+             + "% of samples written to file.")
+
+    print_query_profiles = print_query_profiles[cols]
     print_query_profiles.to_csv('query_MLST.csv', index=False)
 
     print("Number of allelic profiles: " + str(len(query_profiles)))
-    print(query_profiles[query_profiles["Samples"].str.contains("Reference")])
-
     complete_count = query_profiles[~query_profiles['Allelic Profile'].str.contains("X")]
     print("Number of complete allelic profiles: " + str(len(complete_count)))
+    print("Total number of samples: " + str(query_profiles['No. of samples'].sum()))
 
 
 
-    # compare reference and query allelic profiles
+    """# compare reference and query allelic profiles
     # turn SNP vectors into tuples of tuples and turn pd series into set
     ref_vecs = set(
         ref_profiles['SNP vectors'].apply(lambda x: tuple([tuple(a) if type(a) is np.ndarray else () for a in x])))
@@ -210,8 +227,16 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     #print(intersect)
     #print(len(intersect))
 
+    sample_profiles = pd.DataFrame(data['all_test_names'], columns=['Sample'])
+    sample_profiles['Allelic Profile'] = 0
+    for index, row in sample_profiles.iterrows():
+        sample_profiles['Allelic Profile'][index] = query_profiles[query_profiles['Samples'].str.contains(row['Sample'])]['Allelic Profile'].values[0]
+
+    #return(sample_profiles)"""
+    return query_profiles
+
 
 #genome_record = SeqIO.read("NC_021490.2.gb", "genbank")
 #lociSNVdensity(getRefLoci(genome_record))
 #compareMLST("variantContentTable.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
-compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["MEDIUM", "HIGH"])
+compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["MODERATE", "HIGH"])

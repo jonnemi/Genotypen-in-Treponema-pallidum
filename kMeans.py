@@ -43,9 +43,8 @@ def tSNE_KMeans(tSNE_tsv):
 
 #tSNE_KMeans("tSNE.tsv")
 
-def UMAP_KMeans(umap_df):
-    data = umap_df[['UMAP_1', 'UMAP_2']]
-    sample_names = umap_df['label']
+def KMeans_cluster(df):
+    data = df.iloc[:, 0:2]
 
     # run k-Means with a range of k
     distortions = []
@@ -63,21 +62,14 @@ def UMAP_KMeans(umap_df):
     kmeanModel = KMeans(n_clusters=k)
     kmeanModel.fit(data)
 
-    umap_df['K-means_cluster'] = kmeanModel.predict(data)
-
-    # plot k-Means clustering of tSNE
-    """fig, ax = plt.subplots(1)
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', hue='K-means_cluster', data=umap_df, ax=ax, s=5, palette='Dark2_r')
-    ax.set_aspect('equal')
-    ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
-    fig.tight_layout()"""
+    df['cluster'] = kmeanModel.predict(data)
 
     # create dataframe with with cluster number and cluster center location
     cluster_centers = pd.DataFrame(kmeanModel.cluster_centers_, columns=['UMAP_1', 'UMAP_2'])
-    cluster_centers['K-means_cluster'] = list(range(0, k))
+    cluster_centers['cluster'] = list(range(0, k))
 
-    cluster_seqs = umap_df.groupby('K-means_cluster', as_index=False)['label'].apply(', '.join)
-    cluster_centers['cluster_sequences'] = cluster_centers['K-means_cluster'].map(cluster_seqs.set_index('K-means_cluster')['label'])
+    cluster_seqs = df.groupby('cluster', as_index=False)['label'].apply(', '.join)
+    cluster_centers['cluster_sequences'] = cluster_centers['cluster'].map(cluster_seqs.set_index('cluster')['label'])
     cluster_centers['cluster_sequences'] = cluster_centers['cluster_sequences'].str.split(",")
     cluster_centers['size'] = cluster_centers['cluster_sequences'].apply(lambda x: len(x))
 

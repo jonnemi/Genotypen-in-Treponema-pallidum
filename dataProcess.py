@@ -11,6 +11,8 @@ pd.options.mode.chained_assignment = None  # default='warn'
 def encodeNuc(nuc, encoding):
     symbols = ["a", "c", "g", "t", ".", "-"]
     i = symbols.index(nuc)
+    if i == 5:
+        i = 4
     if encoding == "string/none":
         enc = nuc
     elif encoding == "binary":
@@ -23,8 +25,6 @@ def encodeNuc(nuc, encoding):
         one_hot_enc[i] = 1
         enc = one_hot_enc
     else:
-        if i == 5:
-            i = 4
         enc = i
     return enc
 
@@ -235,7 +235,7 @@ def assignStrains(sample_names):
     return strains
 
 
-def getADAdataset(tsvFile, db_name, default_enc):
+def getADAdataset(tsvFile, db_name, encoding):
     # get all SNPs from reference database
     SNPdf = getSNPdf(db_name)
     ref_positions = SNPdf["Position"].unique().tolist()
@@ -271,9 +271,13 @@ def getADAdataset(tsvFile, db_name, default_enc):
     sequence_names.append("Reference(NC_021490)")
 
     # create training and test vector of SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
-    train_2D = encDF(SNPdf, default_enc, common_pos)
-    test_2D = encQuery(query, default_enc, common_pos)
-    dataset = {'train': train_2D, 'train_seq_names': sequence_names, 'test': test_2D, 'test_sample_names': sample_names}
+    train_2D = encDF(SNPdf, encoding, common_pos)
+
+    test_process = encQuery(query, encoding, common_pos)
+    test_2D = test_process["data"]
+    names = test_process["sample_names"]
+
+    dataset = {'train': train_2D, 'train_seq_names': sequence_names, 'test': test_2D, 'test_seq_names': names}
     return dataset
 
 
@@ -328,6 +332,9 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter=
             query = pd.read_csv(tsvFile, sep='\t', header=0)
         query.rename(columns = {'POSITION':'Position'}, inplace = True)
 
+        # print query SNPs to .meg file
+        #newQuerydf_toMega(query, flat_MLST)
+
         # remove all indel rows from dataframe
         query = query[query['ALT_CONTENT'].str.len() == 1 & ~query['ALT_CONTENT'].str.contains("-")]
         query.reset_index()
@@ -342,6 +349,7 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter=
         all_sample_names = [item for sublist in all_sample_names for item in sublist]
         all_sample_names = list(set(all_sample_names))
         all_sample_names.append("Reference")
+
 
     sample_names = []
 
@@ -361,7 +369,7 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter=
 
         sequence_names = locus_SNPdf['Sequence_name'].unique().tolist()
         sequence_names.sort()
-        sequence_names.append("Reference(NC_021490)")
+        sequence_names.append("Reference")
         train_names.append(sequence_names)
 
         # create training and test vector of SNPs, with field for each SNP site (reference_GenWidePos) using one-hot encoding
@@ -380,7 +388,7 @@ def getLociDataset(tsvFile, db_name, default_enc, loci_list, new_format, filter=
 
     loci_list.append("23S rRNA")
     all_train_names = SNPdf['Sequence_name'].unique().tolist()
-    all_train_names.append("Reference(NC_021490)")
+    all_train_names.append("Reference")
     dataset = {'train': train_loci, 'train_seq_names': train_names, 'all_train_names': all_train_names,
                'test': test_loci, 'test_seq_names': sample_names, 'all_test_names': all_sample_names, 'loci': loci_list}
     return dataset
@@ -426,66 +434,68 @@ def getQueryDataset(tsvFile, filter, encoding):
 
     return query
 
-
-def newQuerydf_toMega(df, file):
-
-    sample_names = df["SAMPLES"].str.split(",").tolist()
-    sample_names = [item for sublist in sample_names for item in sublist]
-    sample_names = list(set(sample_names))
-    sample_names.sort()
-
-    positions = df["Position"].tolist()
-    unique_positions = df["Position"].unique().tolist()
-
-    SNP_array = np.empty([len(sample_names), len(unique_positions)], dtype='|S1')
-
-    # iterate over all positions, hence all SNPs
-    for position in positions:
-        # get samples that have this SNp at the given position
-        sequences = df[df['Position'] == position]["SAMPLES"].str.split(",").tolist()[0]
-        pos_in_uniq = unique_positions.index(position)
-
-        # get reference and alternative nucleotide
-        ref = df[df['Position'] == position]["REF_CONTENT"].values[0]
-        alt = df[df['Position'] == position]["ALT_CONTENT"].values[0]
-
-        # enter alternative or reference nucleotide into array for all samples
-        for sample in sample_names:
-            s = sample_names.index(sample)
-            if sample in sequences:
-                nuc = alt
-            else:
-                nuc = ref
-            SNP_array[s][pos_in_uniq] = nuc
+def checkContain(samples, mlst_samples):
+    contains = False
+    for sample in samples:
+        if sample in mlst_samples:
+            contains = True
+    return contains
 
 
-    # convert array of chars into list of strings, one for each sample
-    SNP_strings = []
-    string_length = 'S' + str(len(unique_positions))
-    for seq in SNP_array:
-        seq = str(seq.view(string_length)[0])
-        seq = seq.split("b")[1].split("'")[1]
-        SNP_strings.append(seq)
+def newQuerydf_toMega(df, MLST_positions, file="newQuery_full.meg"):
+    # filter out all irrelevant samples for MLST
+    tsvFile = "query_MLST.csv"
+    if os.path.isfile(tsvFile):
+        mlst = pd.read_csv(tsvFile, sep=',', header=0)
+    mlst_samples = ["Reference"]
+    mlst['Samples'].apply(lambda x: mlst_samples.extend(x.split(", ")))
+
+    df = df[df['ALT_CONTENT'].str.len() == 1 & ~df['ALT_CONTENT'].str.contains("-")]
+    df = df[df['Position'].isin(MLST_positions)].reset_index(drop=True)
+    df['SAMPLES'] = df['SAMPLES'].apply(lambda x: x.split(","))
+    df['MLST_SAMPLES'] = df['SAMPLES'].apply(lambda x: checkContain(x, mlst_samples))
+    df = df[df['MLST_SAMPLES'] == True]
+
+    positions = df["Position"].unique().tolist()
+
+    strings = np.full((len(mlst_samples), len(positions)), ".")
 
     # print SNP sequences to MEGA file
     with open(file, 'w') as f:
         print("#mega", file=f)
         print("TITLE: Noninterleaved sequence data", file=f)
         print(file=f)
-        s = 0
-        for sample in sample_names:
+
+        # iterate over all positions, hence all SNPs
+        for index, row in df.iterrows():
+            pos = row['Position']
+            pos_idx = positions.index(pos)
+            alt_base = row['ALT_CONTENT']
+
+            ref = row['REF_CONTENT']
+            seqs = row['SAMPLES']
+
+            for seq in seqs:
+                if seq in mlst_samples:
+                    seq_idx = mlst_samples.index(seq)
+                    strings[0][pos_idx] = ref
+                    strings[seq_idx][pos_idx] = alt_base
+
+        for sample in mlst_samples:
+            idx = mlst_samples.index(sample)
             label = "#" + sample
             print(label, file=f)
-            print(str(SNP_strings[s]), file=f)
-            s += 1
 
+            sampleSNPs = "".join(strings[idx])
+            #sampleSNPs = sampleSNPs.replace("-", ".")
+            print(sampleSNPs, file=f)
 
     print("Mega file of SNP sequences was saved to " + file)
 
 
 def oldQuerydf_toMega(df, MLST_positions, file="oldQuery_full.meg"):
 
-    df = df[df['Position'].isin(map(str, MLST_positions))]
+    df = df[df['Position'].isin(map(str, MLST_positions))].reset_index(drop=True)
 
     samples = list(df.columns)
     samples.remove('Position')
@@ -509,12 +519,12 @@ def oldQuerydf_toMega(df, MLST_positions, file="oldQuery_full.meg"):
 
 
 def DBdf_toMega(df, MLST_positions, file="refDB_full.meg"):
+    samples = df['Sequence_name'].unique().tolist()
+    samples.insert(0, "Reference")
 
-    df = df[df['Position'].isin(MLST_positions)].reset_index()
-    print(df)
-
-    samples = list(df.columns)
-    samples.remove('Position')
+    df = df[df['Position'].isin(MLST_positions)].reset_index(drop=True)
+    positions = df['Position'].unique().tolist()
+    positions.sort()
 
     # print SNP sequences to MEGA file
     with open(file, 'w') as f:
@@ -522,16 +532,34 @@ def DBdf_toMega(df, MLST_positions, file="refDB_full.meg"):
         print("TITLE: Noninterleaved sequence data", file=f)
         print(file=f)
 
+        strings = np.full((len(samples), len(positions)), ".")
+
         # iterate over all positions, hence all SNPs
+        for index, row in df.iterrows():
+            pos = row['Position']
+            pos_idx = positions.index(pos)
+            alt_base = row['SNP']
+
+            ref = row['Reference']
+            seq_idx = samples.index(row['Sequence_name'])
+
+            strings[0][pos_idx] = ref
+            strings[seq_idx][pos_idx] = alt_base
+
+
         for sample in samples:
+            idx = samples.index(sample)
             label = "#" + sample
             print(label, file=f)
 
-            sampleSNPs = "".join(df[sample].tolist())
+            sampleSNPs = "".join(strings[idx])
             sampleSNPs = sampleSNPs.replace("-", ".")
             print(sampleSNPs, file=f)
 
     print("Mega file of SNP sequences was saved to " + file)
+
+#getLociDataset("variantContentTable.tsv", "snps.db", "string/none", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
+#getLociDataset("Parr1509_CP004010_SNPSummary.tsv", "snps.db", "string/none", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True)
 
 
 

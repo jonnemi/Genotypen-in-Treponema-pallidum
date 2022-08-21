@@ -13,31 +13,97 @@ from scipy.spatial.distance import cdist
 
 
 def adaUmap(queryTSV, db_name):
-    dataset = dataProcess.getADAdataset(queryTSV, db_name, [0, 0, 0, 0, 1])
+    dataset = dataProcess.getADAdataset(queryTSV, db_name, "one-hot")
+    #dataset = dataProcess.getLociDataset("variantContentTable.tsv", "snps.db", "one-hot", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
+    strains = dataProcess.assignStrains(dataset['test_seq_names'])
 
-    reducer = umap.UMAP()
-    reducer.fit(dataset["train"])
-    train= reducer.transform(dataset["train"])
-    test = reducer.transform(dataset["test"])
+    """print(len(dataset['all_train_names']))
+    train = [[] * len(dataset['all_train_names'])]
+    print(train)
+    s = 0
+    for seq in dataset['all_train_names']:
+        l = 0
+        for locus in dataset["train"]:
+            default = np.full(len(locus[0]), 0)
+            if seq in dataset['train_seq_names']:
+                idx = dataset['all_train_names'].index(seq)
+                vec = locus[idx]
+            else:
+                vec = default
+            train[s] = np.append(train[s], vec, 1)
+            l += 1
+        s += 1
 
-    strains = dataProcess.assignStrains(dataset['test_sample_names'])
+    print(train)
 
-    train_pca_df = pd.DataFrame(
-        {'umap_1': train[:, 0], 'umap_2': train[:, 1],
+    for locus in dataset["train"]:
+        print(locus)
+        print(len(locus))"""
+
+    # first UMAP using only query data
+    reducer1 = umap.UMAP(metric='manhattan',
+                        n_neighbors=30,
+                        min_dist=0.0,
+                        n_components=2,
+                        random_state=42,
+                        verbose=True
+                        )
+    reducer1.fit(dataset["test"])
+    only_query = reducer1.transform(dataset["test"])
+
+    only_query_df = pd.DataFrame(
+        {'UMAP_1': only_query[:, 0], 'UMAP_2': only_query[:, 1],
+         'label': dataset['test_seq_names']})
+    only_query_df["strain"] = strains
+
+    # second UMAP trained on reference genomes with embedded query data
+    reducer2 = umap.UMAP(metric='manhattan',
+                        n_neighbors=30,
+                        min_dist=0.0,
+                        n_components=2,
+                        random_state=42,
+                        verbose=True
+                        )
+    reducer2.fit(dataset["train"])
+    train = reducer2.transform(dataset["train"])
+    test = reducer2.transform(dataset["test"])
+    train_df = pd.DataFrame(
+        {'UMAP_1': train[:, 0], 'UMAP_2': train[:, 1],
          'label': dataset['train_seq_names']})
-    test_pca_df = pd.DataFrame(
-        {'umap_1': test[:, 0], 'umap_2': test[:, 1],
-         'label': dataset['test_sample_names']})
-    test_pca_df["strain"] = strains
-    fig, ax = plt.subplots(1)
-    sns.scatterplot(x='umap_1', y='umap_2', data=train_pca_df, ax=ax, s=5, alpha=0.5, color='black')
-    sns.scatterplot(x='umap_1', y='umap_2', hue='strain', data=test_pca_df, ax=ax, s=5, style='strain', markers=["D", "v"])
-    ax.set_aspect('equal')
-    ax.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.0, ncol=3)
-    fig.tight_layout()
+    test_df = pd.DataFrame(
+        {'UMAP_1': test[:, 0], 'UMAP_2': test[:, 1],
+         'label': dataset['test_seq_names']})
+    test_df["strain"] = strains
+
+    print("Compute clustering in projections using kMeans...")
+    umap_clusters1 = kMeans.KMeans_cluster(only_query_df)
+    tsne_clusters2 = kMeans.KMeans_cluster(test_df)
+
+    print("Clustering complete.")
+
+
+    # plot both UMAPs side by side
+    fig, ax = plt.subplots(1, 2)
+    fig.subplots_adjust(top=0.8)
+    #sns.scatterplot(x='UMAP_1', y='UMAP_2', data=only_query_df, ax=ax[0], s=5, hue='strain', style='strain', markers=["D", "v"])
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=only_query_df, ax=ax[0], s=5, hue='cluster')
+    ax[0].set_title("Nur Query-Daten")
+    ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
+    #ax[0].set_aspect('equal')
+
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=train_df, ax=ax[1], s=5, alpha=0.5, color='black')
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', hue='strain', data=test_df, ax=ax[1], s=5, style='strain',
+                    markers=["D", "v"])
+    ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
+    # ax[1].legend([], [], frameon=False)
+    ax[1].set_title("Referenz-UMAP mit Query-Daten")
+    #ax[1].set_aspect('equal')
+    plt.subplots_adjust(wspace=0.5)
+    plt.tight_layout()
+    fig.suptitle("UMAP Vergleich", y=0.98)
     plt.show()
 
-#adaUmap("variantContentTable.tsv", "snps.db")
+adaUmap("variantContentTable.tsv", "snps.db")
 
 
 def queryUmap(tsvFile, filter, default_enc, loci=list()):
@@ -52,7 +118,7 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
 
     # filter for impact
     query['IMPACT'] = query["INFO"].apply(lambda x: x.split("IMPACT=")[1].split(",")[0])
-    query = query[query["IMPACT"].isin(filter)].reset_index()
+    query = query[query["IMPACT"].isin(filter)].reset_index(drop=True)
 
     # get all positions as list
     positions = query["Position"].tolist()
@@ -79,15 +145,19 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
         MLST_positions.extend(rRNA_pos)
         MLST_positions.sort()
 
-        query = query[query["Position"].isin(MLST_positions)].reset_index()
+        query = query[query["Position"].isin(MLST_positions)].reset_index(drop=True)
 
 
     #dataProcess.SNPdf_toMega(query, "all_moderate_high.meg")
+
+    print(query)
 
     # create encoded SNP vector, with field for each SNP site using the given encoding
     process = dataProcess.newEncQuery(query, default_enc, positions)
     enc_2D = process["data"]
     sample_names = process["sample_names"]
+
+    print(enc_2D.shape)
 
     print("Dataset acquired, starting UMAP...")
 
@@ -108,7 +178,7 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
 
 
     # define clusters in UMAP projection using k-means
-    k_Means = kMeans.UMAP_KMeans(umap_df)
+    k_Means = kMeans.KMeans_cluster(umap_df)
 
     # inverse transform kMeans cluster centers into high dimensional space
     cluster_centers = k_Means[['umap_1', 'umap_2']].to_numpy()
@@ -188,10 +258,10 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
         labels = ["consistent" if x in consist_list else "ambiguous" for x in sample_names]
         umap_df['cluster_assign'] = labels
 
-        #fig, ax = plt.subplots(1)
-        #sns.scatterplot(x='umap_1', y='umap_2', data=umap_df, ax=ax, s=5, hue='cluster_assign')
-        #sns.scatterplot(x='umap_1', y='umap_2', data=k_Means, ax=ax, s=5, palette='flare', hue=['cluster center']*len(cluster_centers))
-        #ax.set_aspect('equal')
+        fig, ax = plt.subplots(1)
+        sns.scatterplot(x='umap_1', y='umap_2', data=umap_df, ax=ax, s=5, hue='cluster_assign')
+        sns.scatterplot(x='umap_1', y='umap_2', data=k_Means, ax=ax, s=5, palette='flare', hue=['cluster center']*len(cluster_centers))
+        ax.set_aspect('equal')
 
 
         class_list = list(range(0, len(inv_transformed_centers)))
@@ -236,5 +306,5 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
     plt.show()
 
 
-queryUmap("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
+#queryUmap("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary")
 
