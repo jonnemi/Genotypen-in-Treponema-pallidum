@@ -174,13 +174,23 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     cols = ["Allelic Profile"]
     cols.extend(loci_list)
     cols.extend(["No. of samples"])
-    #cols = ['Allelic Profile', 'Samples']
-    print_ref_profiles = ref_profiles[cols]
+    cols = ['Allelic Profile', 'Samples']
+    print_ref_profiles = ref_profiles.copy()
+    print_ref_profiles = print_ref_profiles[print_ref_profiles["No. of samples"] > 1]
+    print_ref_profiles = print_ref_profiles[cols]
     print_ref_profiles.to_csv('ref_MLST.csv', index=False)
 
     complete_count = ref_profiles[~ref_profiles['Allelic Profile'].str.contains("X")]
     print("Number of complete allelic profiles: " + str(len(complete_count)))
     print("Total number of samples: " + str(ref_profiles['No. of samples'].sum()))
+
+    s_df = ref_profiles[ref_profiles['23S rRNA'].str.contains("S")]
+    na_df = ref_profiles[ref_profiles['23S rRNA'].str.contains("NA")]
+    s_count = len(s_df['23S rRNA'].tolist())
+    na_count = len(na_df['23S rRNA'].tolist())
+
+    print("Percentage of resistant Allelic Profiles: " + str(s_count + na_count))
+
 
     print()
     print("----------------------------------------------------------------------------")
@@ -205,6 +215,8 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
         print("Allelic profiles representing " + str(round(print_query_profiles["No. of samples"].sum() * 100 /query_profiles["No. of samples"].sum()))
              + "% of samples written to file.")
 
+
+    print_query_profiles = print_query_profiles[print_query_profiles["No. of samples"] > 1]
     print_query_profiles = print_query_profiles[cols]
     print_query_profiles.to_csv('query_MLST.csv', index=False)
 
@@ -212,6 +224,13 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     complete_count = query_profiles[~query_profiles['Allelic Profile'].str.contains("X")]
     print("Number of complete allelic profiles: " + str(len(complete_count)))
     print("Total number of samples: " + str(query_profiles['No. of samples'].sum()))
+
+    s_df = query_profiles[query_profiles['23S rRNA'].str.contains("S")]
+    na_df = query_profiles[query_profiles['23S rRNA'].str.contains("NA")]
+    s_count = len(s_df['23S rRNA'].tolist())
+    na_count = len(na_df['23S rRNA'].tolist())
+
+    print("Percentage of sensitive Allelic Profiles: " + str(s_count + na_count))
 
 
 
@@ -225,18 +244,19 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     # get intersection of both sets
     intersect = ref_vecs.intersection(query_vecs)
     #print(intersect)
-    #print(len(intersect))
+    #print(len(intersect))"""
 
     sample_profiles = pd.DataFrame(data['all_test_names'], columns=['Sample'])
     sample_profiles['Allelic Profile'] = 0
     for index, row in sample_profiles.iterrows():
         sample_profiles['Allelic Profile'][index] = query_profiles[query_profiles['Samples'].str.contains(row['Sample'])]['Allelic Profile'].values[0]
 
-    #return(sample_profiles)"""
-    return query_profiles
+    return(sample_profiles)
+
+    #return sample_profiles
 
 
 #genome_record = SeqIO.read("NC_021490.2.gb", "genbank")
 #lociSNVdensity(getRefLoci(genome_record))
 #compareMLST("variantContentTable.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
-compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["MODERATE", "HIGH"])
+#compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["MODERATE", "HIGH"])

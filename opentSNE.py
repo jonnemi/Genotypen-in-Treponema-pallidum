@@ -44,28 +44,29 @@ def adaTSNE(queryTSV, db_name):
     train_df = pd.DataFrame(
         {'tSNE_1': train[:, 0], 'tSNE_2': train[:, 1],
          'label': dataset['train_seq_names']})
+    train_df["strain"] = "Referenz"
+
     test_df = pd.DataFrame(
         {'tSNE_1': test[:, 0], 'tSNE_2': test[:, 1],
          'label': dataset['test_seq_names']})
     test_df["strain"] = strains
 
+    with_ref_df = train_df.append(test_df)
 
-    # plot both UMAPs side by side
-    fig, ax = plt.subplots(1, 2)
+    # plot both tSNEs side by side
+    fig, ax = plt.subplots(2, 1)
     fig.subplots_adjust(top=0.8)
-    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=only_query_df, ax=ax[0], s=5, hue='strain',
-                    style='strain', markers=["D", "v"])
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', hue='strain', data=only_query_df, ax=ax[0], s=20, style='strain',
+                    markers=["D", "v"], palette=["C0", "C1"])
     ax[0].set_title("Nur Query-Daten")
     ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
-    #ax[0].set_aspect('equal')
 
-    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=train_df, ax=ax[1], s=5, alpha=0.5, color='black')
-    sns.scatterplot(x='tSNE_1', y='tSNE_2', hue='strain', data=test_df, ax=ax[1], s=5, style='strain',
-                    markers=["D", "v"])
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', hue='strain', data=with_ref_df, ax=ax[1], s=20, style='strain',
+                    markers=["o", "D", "v"], palette=["k", "C0", "C1"])
     ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
     # ax[1].legend([], [], frameon=False)
     ax[1].set_title("Referenz-tSNE mit Query-Daten")
-    #ax[1].set_aspect('equal')
+    # ax[1].set_aspect('equal')
     plt.subplots_adjust(wspace=0.5)
     plt.tight_layout()
     fig.suptitle("tSNE Vergleich", y=0.98)

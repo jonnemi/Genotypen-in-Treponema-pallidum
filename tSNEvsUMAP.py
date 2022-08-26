@@ -10,6 +10,7 @@ from openTSNE import TSNE
 import ast
 import dbscan
 import MLST
+from sklearn.metrics.cluster import adjusted_rand_score
 
 
 def legend_cols(cluster_col):
@@ -20,22 +21,23 @@ def legend_cols(cluster_col):
     return cols
 
 
-def plotCompare(df, title):
-    fig, ax = plt.subplots(1, 2)
+def plotCompare(df, title, umap_titel, tsne_titel):
+    fig, ax = plt.subplots(2, 1)
+    fig.set_size_inches(11.69,8.27)
     fig.subplots_adjust(top=0.8)
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=df, ax=ax[0], s=5, hue='umap_cluster',
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=df, ax=ax[0], s=15, hue='umap_cluster',
                     palette=sns.color_palette("hls", df['umap_cluster'].nunique()))
-    ax[0].set_title("UMAP")
+    ax[0].set_title(umap_titel)
     # ax[0].legend([], [], frameon=False)
     ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='UMAP Cluster',
                  ncol=legend_cols(df['umap_cluster']))
 
-    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=df, ax=ax[1], s=5, hue='tsne_cluster',
+    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=df, ax=ax[1], s=15, hue='tsne_cluster',
                     palette=sns.color_palette("hls", df['tsne_cluster'].nunique()))
     ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='tSNE Cluster',
                  ncol=legend_cols(df['tsne_cluster']))
     # ax[1].legend([], [], frameon=False)
-    ax[1].set_title("tSNE")
+    ax[1].set_title(tsne_titel)
     plt.subplots_adjust(wspace=0.5)
     plt.tight_layout()
     fig.suptitle(title, y=0.98)
@@ -65,7 +67,7 @@ def plotCompareEmbedding(df1, rep_umap, rep_tsne, title):
     plt.tight_layout()
     fig.suptitle(title, y=0.98)"""
     rep_umap['Style'] = "Cluster Vektor"
-    print(rep_umap)
+
     fig, ax = plt.subplots(1)
     fig.subplots_adjust(top=0.8)
     sns.scatterplot(x='UMAP_1', y='UMAP_2', data=df1, ax=ax, s=5, hue='umap_cluster', hue_order=df1['umap_cluster'].unique().tolist().sort(),
@@ -160,8 +162,13 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
     print("Clustering complete.")
 
     # define genotypes by SNP frequencies in each cluster
-    umap_cluster_represent = freqGenotype(umap_df, enc_2D)
-    tsne_cluster_represent = freqGenotype(tsne_df, enc_2D)
+    print()
+    print("Compute UMAP genotype by SNP-frequencies...")
+    umap_cluster_represent = freqGenotype(umap_df, enc_2D, "umap_SNP_freqs.csv")
+    print()
+    print("Compute tSNE genotype by SNP-frequencies...")
+    tsne_cluster_represent = freqGenotype(tsne_df, enc_2D, "tsne_SNP_freqs.csv")
+    print()
 
     rep_transform = reducer.transform(umap_cluster_represent)
 
@@ -280,7 +287,7 @@ def clusterCenterGenotype(umap_df, k_Means, reducer, enc_2D):
         print()
 
 
-def freqGenotype(df, enc_2D):
+def freqGenotype(df, enc_2D, file):
     sample_names = df['label'].tolist()
     cluster_count = df['cluster'].nunique()
     cluster_df = pd.DataFrame(range(cluster_count), columns=['Cluster'])
@@ -322,25 +329,59 @@ def freqGenotype(df, enc_2D):
         rep[c] = np.where(cluster_snp_freqs[c] >= lim, 1, 0)
         c += 1
 
-    #cluster_snp_freqs.to_csv('ref_MLST.csv', index=False)
+    cluster_df.to_csv(file, index=False)
     print(cluster_df)
     return rep
 
-print("No Filter, kMEans, noMLST")
-df = compare("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary", "kMeans")
-plotCompare(df, "UMAP vs. tSNE mit kMeans-Clustering (MODERATE, HIGH)")
 
-print("No Filter, DBSCAN, noMLST")
-#df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "dbscan")
-# plotCompare(df, "UMAP vs. tSNE mit DBSCAN-Clustering (MODERATE, HIGH)")
+def compareToMLST(df, file):
+    mlst = MLST.compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"],
+                            True)
+    MLST_df = pd.merge(df, mlst, left_on='label', right_on='Sample', how='inner')
+
+    MLST_grouped = MLST_df.groupby(['umap_cluster'])['Allelic Profile']
+    print(MLST_grouped.describe())
+    print(df.groupby(['umap_cluster']).size().describe())
+    MLST_grouped.describe().to_csv(file)
+
+def randIndex(dfs):
+    umap_rand_table = np.empty((len(dfs), len(dfs)))
+    tsne_rand_table = np.empty((len(dfs), len(dfs)))
+    o = 0
+    for df_out in dfs:
+        i = 0
+        for df_in in dfs:
+            rand_clusters = pd.merge(df_out, df_in, on='label', how='inner')
+            umap_rand_index = adjusted_rand_score(rand_clusters['umap_cluster_x'].tolist(),
+                                                  rand_clusters['umap_cluster_y'].tolist())
+            umap_rand_table[o][i] = round(umap_rand_index, 4)
+            tsne_rand_index = adjusted_rand_score(rand_clusters['tsne_cluster_x'].tolist(),
+                                                  rand_clusters['tsne_cluster_y'].tolist())
+            tsne_rand_table[o][i] = round(tsne_rand_index, 4)
+            i += 1
+        o += 1
+
+    print(umap_rand_table)
+    print(tsne_rand_table)
+
+
+print("No Filter, kMEans, noMLST")
+df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "kMeans")
+#plotCompare(df, "UMAP vs. tSNE mit k-Means-Clustering", "UMAP", "tSNE")
+#compareToMLST(df, 'cluster_allel_profiles.csv')
+
+print("Filter, kMeans, noMLST")
+filter_df = compare("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary", "kMeans")
+#plotCompare(filter_df, "UMAP vs. tSNE mit k-Means-Clustering (MODERATE, HIGH)", "UMAP", "tSNE")
+#compareToMLST(filter_df, 'cluster_allel_profiles.csv')
 
 print("No Filter, kMeans, MLST")
-#MLST_df = compare("Parr1509_CP004010_SNPSummary.tsv", ["HIGH"], "binary", "kMeans", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
-#plotCompare(MLST_df, "MLST UMAP vs. MLST tSNE mit kMeans-Clustering (MODERATE, HIGH)")
+MLST_df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "kMeans", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
+#plotCompare(MLST_df, "MLST-UMAP vs. MLST-tSNE mit k-Means-Clustering", "MLST-UMAP", "MLST-tSNE")
+#compareToMLST(MLST_df, 'MLST_cluster_allel_profiles.csv')
 
-#MLST_df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "dbscan", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
-#plotCompare(MLST_df, "MLST UMAP vs. MLST tSNE mit DBSCAN-Clustering (MODERATE, HIGH)")
 
+randIndex([df, filter_df, MLST_df])
 
 ####################
 """print("All Data acquired")

@@ -70,30 +70,32 @@ def adaUmap(queryTSV, db_name):
     train_df = pd.DataFrame(
         {'UMAP_1': train[:, 0], 'UMAP_2': train[:, 1],
          'label': dataset['train_seq_names']})
+    train_df["strain"] = "Referenz"
+
     test_df = pd.DataFrame(
         {'UMAP_1': test[:, 0], 'UMAP_2': test[:, 1],
          'label': dataset['test_seq_names']})
     test_df["strain"] = strains
 
+    with_ref_df = train_df.append(test_df)
+
     print("Compute clustering in projections using kMeans...")
-    umap_clusters1 = kMeans.KMeans_cluster(only_query_df)
-    tsne_clusters2 = kMeans.KMeans_cluster(test_df)
+    #umap_clusters1 = kMeans.KMeans_cluster(only_query_df)
+    #tsne_clusters2 = kMeans.KMeans_cluster(test_df)
 
     print("Clustering complete.")
 
 
     # plot both UMAPs side by side
-    fig, ax = plt.subplots(1, 2)
+    fig, ax = plt.subplots(2, 1)
     fig.subplots_adjust(top=0.8)
-    #sns.scatterplot(x='UMAP_1', y='UMAP_2', data=only_query_df, ax=ax[0], s=5, hue='strain', style='strain', markers=["D", "v"])
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=only_query_df, ax=ax[0], s=5, hue='cluster')
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', hue='strain', data=only_query_df, ax=ax[0], s=20, style='strain',
+                   markers=["D", "v"], palette=["C0", "C1"])
     ax[0].set_title("Nur Query-Daten")
     ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
-    #ax[0].set_aspect('equal')
 
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=train_df, ax=ax[1], s=5, alpha=0.5, color='black')
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', hue='strain', data=test_df, ax=ax[1], s=5, style='strain',
-                    markers=["D", "v"])
+    sns.scatterplot(x='UMAP_1', y='UMAP_2', hue='strain', data=with_ref_df, ax=ax[1], s=20, style='strain',
+                    markers=["o", "D", "v"], palette=["k", "C0", "C1"])
     ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Stamm')
     # ax[1].legend([], [], frameon=False)
     ax[1].set_title("Referenz-UMAP mit Query-Daten")

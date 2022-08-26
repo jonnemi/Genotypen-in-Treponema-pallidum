@@ -562,6 +562,22 @@ def DBdf_toMega(df, MLST_positions, file="refDB_full.meg"):
 #getLociDataset("Parr1509_CP004010_SNPSummary.tsv", "snps.db", "string/none", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True)
 
 
+def groupMetadata(tsvFile):
+    # read metadata
+    if os.path.isfile(tsvFile):
+        data = pd.read_csv(tsvFile, sep='\t', header=0)
+    # groupby country and institute
+    group = data.groupby(['country', 'institute'])['strain'].size().reset_index(name='counts')
 
+    # print to file
+    print(group)
+    dir = tsvFile.split("/")[0]
+    filename = "grouped_" + tsvFile.split("/")[1]
+    new_file = dir + "/" + filename
+    print(new_file)
+    group.to_csv(new_file, sep='\t', index=False)
+
+#groupMetadata("metadata/62_TPA_Meta.tsv")
+#groupMetadata("metadata/U19_TPA_Meta.tsv")
 
 
