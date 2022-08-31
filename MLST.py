@@ -148,12 +148,13 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
 
 
 def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
+    sep = "-" * 80
     if '23S rRNA' in loci_list:
         loci_list.remove('23S rRNA')
     # get loci training and test data set
     data = dataProcess.getLociDataset(tsvQuery, "snps.db", "string/none", loci_list, new_format, filter)
     print("Dataset acquired")
-    print("-" * 30)
+    print(sep)
 
     # create MLST for referene data set
     ref_profiles = MLST(data['train'], data['train_seq_names'], data['all_train_names'], loci_list)
@@ -161,20 +162,20 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     ref_profiles['sort'] = ref_profiles['sort'].replace("X", "10000")
     ref_profiles['sort'] = pd.to_numeric(ref_profiles['sort'])
     ref_profiles = ref_profiles.sort_values('sort').reset_index(drop=True)
-    print("Reference MLST:")
-    print(ref_profiles)
-    print("Number of allelic profiles: " + str(len(ref_profiles)))
+    print("MLST des Referenz-Datensatzes:")
+
     cols = ["Allelic Profile"]
     cols.extend(loci_list)
     cols.extend(["No. of samples"])
     cols = ['Allelic Profile', 'Samples']
     print_ref_profiles = ref_profiles.copy()
-    print_ref_profiles = print_ref_profiles[print_ref_profiles["No. of samples"] > 1]
+
     print_ref_profiles = print_ref_profiles[cols]
     print_ref_profiles.to_csv('ref_MLST.csv', index=False)
-
+    print(print_ref_profiles)
+    print("Number of allelic profiles: " + str(len(ref_profiles)))
     complete_count = ref_profiles[~ref_profiles['Allelic Profile'].str.contains("X")]
-    print("Number of complete allelic profiles: " + str(len(complete_count)))
+    print("Number of complete Allelic Profiles: " + str(len(complete_count)))
     print("Total number of samples: " + str(ref_profiles['No. of samples'].sum()))
 
     s_df = ref_profiles[ref_profiles['23S rRNA'].str.contains("S")]
@@ -186,7 +187,7 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
 
 
     print()
-    print("-" * 30)
+    print(sep)
     print()
 
     # create MLST for query data set
@@ -198,8 +199,7 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     query_profiles['sort2'] = query_profiles['sort2'].replace("X", "10000")
     query_profiles['sort2'] = pd.to_numeric(query_profiles['sort2'])
     query_profiles = query_profiles.sort_values(['sort1', 'sort2']).reset_index(drop=True)
-    print("Query MLST:")
-    print(query_profiles)
+    print("MLST des Proben-Datensatzes:")
 
     print_query_profiles = query_profiles.copy()
     if new_format:
@@ -209,13 +209,13 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
              + "% of samples written to file.")
 
 
-    print_query_profiles = print_query_profiles[print_query_profiles["No. of samples"] > 1]
     print_query_profiles = print_query_profiles[cols]
     print_query_profiles.to_csv('query_MLST.csv', index=False)
+    print(print_query_profiles)
 
     print("Number of allelic profiles: " + str(len(query_profiles)))
     complete_count = query_profiles[~query_profiles['Allelic Profile'].str.contains("X")]
-    print("Number of complete allelic profiles: " + str(len(complete_count)))
+    print("Number of complete Allelic Profiles: " + str(len(complete_count)))
     print("Total number of samples: " + str(query_profiles['No. of samples'].sum()))
 
     s_df = query_profiles[query_profiles['23S rRNA'].str.contains("S")]
@@ -223,7 +223,7 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     s_count = len(s_df['23S rRNA'].tolist())
     na_count = len(na_df['23S rRNA'].tolist())
 
-    print("Percentage of sensitive Allelic Profiles: " + str(s_count + na_count))
+    print("Number of sensitive Allelic Profiles: " + str(s_count + na_count))
 
     sample_profiles = pd.DataFrame(data['all_test_names'], columns=['Sample'])
     sample_profiles['Allelic Profile'] = 0

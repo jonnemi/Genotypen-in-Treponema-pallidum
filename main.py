@@ -10,9 +10,9 @@ startTime = datetime.now()
 
 
 if __name__ == '__main__':
-
-    sep = "=" * 30
-    sub_sep = "-" * 30
+    seperator_len = 80
+    sep = "=" * seperator_len
+    sub_sep = "-" * seperator_len
     MLST_loci = ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"]
 
     # create reference genome database snps.db
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
     # tSNE vs. UMAP für 1508-Proben-Datensatz
     print("tSNE vs. UMAP für den 1508-Proben-Datensatz:")
-    print(sep)
+    print(sub_sep)
     print("Ohne SNP-Filtern, ohne MLST:")
     df = tSNEvsUMAP.compare("1508-Proben-Datensatz.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "kMeans")
     tSNEvsUMAP.plotCompare(df, "UMAP vs. tSNE mit k-Means-Clustering", "UMAP", "tSNE")
@@ -69,5 +69,6 @@ if __name__ == '__main__':
     tSNEvsUMAP.randIndex([df, filter_df, MLST_df])
 
 print()
+print(sep)
 print("Laufzeit: " + str(datetime.now() - startTime))
 plt.show()

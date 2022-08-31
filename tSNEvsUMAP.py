@@ -137,11 +137,9 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
     print("Clustering complete.")
 
     # define genotypes by SNP frequencies in each cluster
-    print()
-    print("Compute UMAP genotype by SNP-frequencies...")
+    print("Number of SNPs with given frequency for each UMAP-Cluster:")
     umap_cluster_represent = freqGenotype(umap_df, enc_2D, "umap_SNP_freqs.csv")
-    print()
-    print("Compute tSNE genotype by SNP-frequencies...")
+    print("Number of SNPs with given frequency for each tSNE-Cluster:")
     tsne_cluster_represent = freqGenotype(tsne_df, enc_2D, "tsne_SNP_freqs.csv")
     print()
 
@@ -336,8 +334,8 @@ def randIndex(dfs):
             tsne_rand_table[o][i] = round(tsne_rand_index, 4)
             i += 1
         o += 1
-    print("ARI der UMAPs")
+    print("ARI der UMAPs:")
     print(umap_rand_table)
     print()
-    print("ARI der tSNEs")
+    print("ARI der tSNEs:")
     print(tsne_rand_table)
