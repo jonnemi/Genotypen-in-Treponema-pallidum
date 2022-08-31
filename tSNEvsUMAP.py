@@ -89,7 +89,7 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
     process = dataProcess.newEncQuery(query, default_enc, positions)
     enc_2D = process["data"]
     sample_names = process["sample_names"]
-
+    print()
     print("Dataset acquired, starting UMAP...")
 
     # apply UMAP to data
@@ -119,7 +119,6 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
          'label': sample_names})
 
     # define clusters in UMAP and tSNE projection using given clustering method
-    print()
     print("Compute clustering in projections using " + clustering + "...")
     if clustering == "kMeans":
         umap_clusters = kMeans.KMeans_cluster(umap_df)
@@ -135,10 +134,12 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
         umap_df['cluster'] = -1
         tsne_df['cluster'] = -1
     print("Clustering complete.")
+    print()
 
     # define genotypes by SNP frequencies in each cluster
     print("Number of SNPs with given frequency for each UMAP-Cluster:")
     umap_cluster_represent = freqGenotype(umap_df, enc_2D, "umap_SNP_freqs.csv")
+    print()
     print("Number of SNPs with given frequency for each tSNE-Cluster:")
     tsne_cluster_represent = freqGenotype(tsne_df, enc_2D, "tsne_SNP_freqs.csv")
     print()
@@ -317,6 +318,7 @@ def compareToMLST(df, file):
     print("Allel-Profile der UMAP-Cluster:")
     print(MLST_grouped.describe())
     MLST_grouped.describe().to_csv(file)
+    return(MLST_grouped.describe())
 
 def randIndex(dfs):
     umap_rand_table = np.empty((len(dfs), len(dfs)))

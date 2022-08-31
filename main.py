@@ -4,9 +4,19 @@ import UMAP
 import opentSNE
 import tSNEvsUMAP
 from Bio import SeqIO
+import sys, os
 import matplotlib.pyplot as plt
 from datetime import datetime
 startTime = datetime.now()
+
+
+# Disable print
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore print
+def enablePrint():
+    sys.stdout = sys.__stdout__
 
 
 if __name__ == '__main__':
@@ -45,24 +55,37 @@ if __name__ == '__main__':
     print(sep)
 
     # tSNE vs. UMAP für 1508-Proben-Datensatz
-    print("tSNE vs. UMAP für den 1508-Proben-Datensatz:")
+    print("tSNE vs. UMAP für den 1508-Proben-Datensatz (ohne SNP-Filtern, ohne MLST)")
     print(sub_sep)
-    print("Ohne SNP-Filtern, ohne MLST:")
     df = tSNEvsUMAP.compare("1508-Proben-Datensatz.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "kMeans")
     tSNEvsUMAP.plotCompare(df, "UMAP vs. tSNE mit k-Means-Clustering", "UMAP", "tSNE")
-    tSNEvsUMAP.compareToMLST(df, 'cluster_allel_profiles.csv')
+    blockPrint()
+    cluster_profiles = tSNEvsUMAP.compareToMLST(df, 'cluster_allel_profiles.csv')
+    enablePrint()
+    print("Allel-Profile der UMAP-Cluster:")
+    print(cluster_profiles)
     print(sep)
 
-    print("Mit SNP-Filtern nach MODERATE und HIGH, ohne MLST:")
+    print("tSNE vs. UMAP für den 1508-Proben-Datensatz (mit SNP-Filtern nach MODERATE + HIGH, ohne MLST):")
+    print(sub_sep)
     filter_df = tSNEvsUMAP.compare("1508-Proben-Datensatz.tsv", ["MODERATE", "HIGH"], "binary", "kMeans")
     tSNEvsUMAP.plotCompare(filter_df, "UMAP vs. tSNE mit k-Means-Clustering (MODERATE, HIGH)", "UMAP", "tSNE")
+    blockPrint()
     tSNEvsUMAP.compareToMLST(filter_df, 'cluster_allel_profiles.csv')
+    enablePrint()
+    print("Allel-Profile der UMAP-Cluster:")
+    print(cluster_profiles)
     print(sep)
 
-    print("Ohne SNP-Filtern, mit MLST:")
+    print("tSNE vs. UMAP für den 1508-Proben-Datensatz (ohne SNP-Filtern, mit MLST):")
+    print(sub_sep)
     MLST_df = tSNEvsUMAP.compare("1508-Proben-Datensatz.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "kMeans", MLST_loci)
     tSNEvsUMAP.plotCompare(MLST_df, "MLST-UMAP vs. MLST-tSNE mit k-Means-Clustering", "MLST-UMAP", "MLST-tSNE")
+    blockPrint()
     tSNEvsUMAP.compareToMLST(MLST_df, 'MLST_cluster_allel_profiles.csv')
+    enablePrint()
+    print("Allel-Profile der UMAP-Cluster:")
+    print(cluster_profiles)
     print(sep)
 
     print("Adjusted-Rand-Index der berechneten tSNEs und UMAPs:")

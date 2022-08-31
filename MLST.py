@@ -183,7 +183,7 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     s_count = len(s_df['23S rRNA'].tolist())
     na_count = len(na_df['23S rRNA'].tolist())
 
-    print("Percentage of resistant Allelic Profiles: " + str(s_count + na_count))
+    print("Number of sensitive Allelic Profiles: " + str(s_count + na_count))
 
 
     print()
