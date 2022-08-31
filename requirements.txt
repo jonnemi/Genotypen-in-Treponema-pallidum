@@ -1,0 +1,37 @@
+biopython @ file:///D:/bld/biopython_1655702769294/work
+certifi==2022.6.15
+colorama @ file:///home/conda/feedstock_root/build_artifacts/colorama_1655412516417/work
+cycler @ file:///home/conda/feedstock_root/build_artifacts/cycler_1635519461629/work
+fonttools @ file:///D:/bld/fonttools_1660773561800/work
+joblib @ file:///home/conda/feedstock_root/build_artifacts/joblib_1633637554808/work
+kiwisolver @ file:///D:/bld/kiwisolver_1657953200729/work
+kneed @ file:///home/conda/feedstock_root/build_artifacts/kneed_1597304056973/work
+llvmlite==0.38.1
+matplotlib @ file:///D:/bld/matplotlib-suite_1660700903987/work
+munkres==1.1.4
+numba @ file:///D:/bld/numba_1655473409142/work
+numpy @ file:///D:/bld/numpy_1651020773031/work
+openTSNE @ file:///C:/Windows/Temp/abs_84a8s3h9_s/croots/recipe/opentsne_1659348475909/work
+packaging @ file:///home/conda/feedstock_root/build_artifacts/packaging_1637239678211/work
+pandas @ file:///D:/bld/pandas_1656001279371/work
+patsy @ file:///home/conda/feedstock_root/build_artifacts/patsy_1632667180946/work
+Pillow @ file:///D:/bld/pillow_1660386017005/work
+ply==3.11
+pynndescent @ file:///home/conda/feedstock_root/build_artifacts/pynndescent_1652648933546/work
+pyparsing @ file:///home/conda/feedstock_root/build_artifacts/pyparsing_1652235407899/work
+PyQt5==5.15.7
+PyQt5-sip @ file:///D:/bld/pyqt-split_1657234646811/work/pyqt_sip
+python-dateutil @ file:///home/conda/feedstock_root/build_artifacts/python-dateutil_1626286286081/work
+pytz @ file:///home/conda/feedstock_root/build_artifacts/pytz_1660580468234/work
+scikit-learn @ file:///D:/bld/scikit-learn_1659726281030/work
+scipy==1.9.0
+seaborn @ file:///home/conda/feedstock_root/build_artifacts/seaborn-split_1629095986539/work
+sip @ file:///D:/bld/sip_1655765083928/work
+six @ file:///home/conda/feedstock_root/build_artifacts/six_1620240208055/work
+statsmodels @ file:///D:/bld/statsmodels_1644535868573/work
+threadpoolctl @ file:///home/conda/feedstock_root/build_artifacts/threadpoolctl_1643647933166/work
+toml @ file:///home/conda/feedstock_root/build_artifacts/toml_1604308577558/work
+tornado @ file:///D:/bld/tornado_1656937934674/work
+tqdm @ file:///home/conda/feedstock_root/build_artifacts/tqdm_1649051611147/work
+umap-learn @ file:///D:/bld/umap-learn_1649908356809/work
+unicodedata2 @ file:///D:/bld/unicodedata2_1649112114189/work
