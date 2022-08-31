@@ -2,6 +2,8 @@ import os
 import sqlite3
 import matplotlib.pyplot as plt
 import numpy as np
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import seaborn as sns
 
@@ -19,7 +21,7 @@ def adaTSNE(queryTSV, db_name):
         metric="manhattan",
         n_jobs=8,
         random_state=3,
-        verbose=True,
+        #verbose=True,
     )
     reducer1 = tsne1.fit(dataset["test"])
     only_query = reducer1.transform(dataset["test"])
@@ -36,7 +38,7 @@ def adaTSNE(queryTSV, db_name):
         metric="manhattan",
         n_jobs=8,
         random_state=3,
-        verbose=True,
+        #verbose=True,
     )
     reducer2 = tsne2.fit(dataset["train"])
     train = reducer2.transform(dataset["train"])
@@ -70,9 +72,9 @@ def adaTSNE(queryTSV, db_name):
     plt.subplots_adjust(wspace=0.5)
     plt.tight_layout()
     fig.suptitle("tSNE Vergleich", y=0.98)
-    plt.show()
+    #plt.show()
 
-adaTSNE("variantContentTable.tsv", "snps.db")
+#adaTSNE("variantContentTable.tsv", "snps.db")
 
 def encodeNuc(nuc):
     enc = ["a", "c", "g", "t", ".", "-"]

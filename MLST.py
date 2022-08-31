@@ -1,15 +1,12 @@
-import math
-
 import pandas as pd
-from Bio import SeqIO
 import sqlite3
 import numpy as np
 from collections import Counter
 import ast
 import os
 import dataProcess
-import difflib
-import csv
+
+
 
 
 def getRefLoci(genome_record):
@@ -160,7 +157,7 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
     # get loci training and test data set
     data = dataProcess.getLociDataset(tsvQuery, "snps.db", "string/none", loci_list, new_format, filter)
     print("Dataset acquired")
-    print("----------------------------------------------------------------------------")
+    print("-" * 30)
 
     # create MLST for referene data set
     ref_profiles = MLST(data['train'], data['train_seq_names'], data['all_train_names'], loci_list)
@@ -193,7 +190,7 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
 
 
     print()
-    print("----------------------------------------------------------------------------")
+    print("-" * 30)
     print()
 
     # create MLST for query data set
@@ -232,28 +229,12 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
 
     print("Percentage of sensitive Allelic Profiles: " + str(s_count + na_count))
 
-
-
-    """# compare reference and query allelic profiles
-    # turn SNP vectors into tuples of tuples and turn pd series into set
-    ref_vecs = set(
-        ref_profiles['SNP vectors'].apply(lambda x: tuple([tuple(a) if type(a) is np.ndarray else () for a in x])))
-    query_vecs = set(
-        query_profiles['SNP vectors'].apply(lambda x: tuple([tuple(a) if type(a) is np.ndarray else () for a in x])))
-
-    # get intersection of both sets
-    intersect = ref_vecs.intersection(query_vecs)
-    #print(intersect)
-    #print(len(intersect))"""
-
     sample_profiles = pd.DataFrame(data['all_test_names'], columns=['Sample'])
     sample_profiles['Allelic Profile'] = 0
     for index, row in sample_profiles.iterrows():
         sample_profiles['Allelic Profile'][index] = query_profiles[query_profiles['Samples'].str.contains(row['Sample'])]['Allelic Profile'].values[0]
 
-    return(sample_profiles)
-
-    #return sample_profiles
+    return sample_profiles
 
 
 #genome_record = SeqIO.read("NC_021490.2.gb", "genbank")

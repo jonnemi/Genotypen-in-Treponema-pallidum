@@ -224,4 +224,4 @@ def querytSNE(tsvFile, filter, default_enc):
     ax.legend([],[], frameon=False)
     plt.show()
 
-querytSNE("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "one-hot")
+#querytSNE("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "one-hot")

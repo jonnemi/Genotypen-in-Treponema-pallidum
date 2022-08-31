@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import dataProcess
 import umap
@@ -121,7 +123,7 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
                         min_dist=0.0,
                         n_components=2,
                         random_state=42,
-                        verbose=True
+                        #verbose=True
                         )
     transform = reducer.fit_transform(enc_2D)
 
@@ -136,7 +138,7 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
         metric="manhattan",
         n_jobs=8,
         random_state=3,
-        verbose=True,
+        #verbose=True,
     ).fit(enc_2D)
 
     tsne_df = pd.DataFrame(
@@ -186,7 +188,9 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
     tsne_df.rename({'cluster': 'tsne_cluster'}, axis=1, inplace=True)
     ML_df = pd.merge(umap_df, tsne_df, how='outer', on='label')
     title = "UMAP und tSNE mit " + clustering + "-Clustering"
-    plotCompareEmbedding(ML_df, rep_umap, rep_tsne, title)
+
+    # plot representative cluster vectors into clustering
+    #plotCompareEmbedding(ML_df, rep_umap, rep_tsne, title)
 
     return ML_df
 
@@ -365,23 +369,7 @@ def randIndex(dfs):
     print(tsne_rand_table)
 
 
-print("No Filter, kMEans, noMLST")
-df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "kMeans")
-#plotCompare(df, "UMAP vs. tSNE mit k-Means-Clustering", "UMAP", "tSNE")
-#compareToMLST(df, 'cluster_allel_profiles.csv')
 
-print("Filter, kMeans, noMLST")
-filter_df = compare("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary", "kMeans")
-#plotCompare(filter_df, "UMAP vs. tSNE mit k-Means-Clustering (MODERATE, HIGH)", "UMAP", "tSNE")
-#compareToMLST(filter_df, 'cluster_allel_profiles.csv')
-
-print("No Filter, kMeans, MLST")
-MLST_df = compare("Parr1509_CP004010_SNPSummary.tsv", ["LOW", "MODIFIER", "MODERATE", "HIGH"], "binary", "kMeans", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
-#plotCompare(MLST_df, "MLST-UMAP vs. MLST-tSNE mit k-Means-Clustering", "MLST-UMAP", "MLST-tSNE")
-#compareToMLST(MLST_df, 'MLST_cluster_allel_profiles.csv')
-
-
-randIndex([df, filter_df, MLST_df])
 
 ####################
 """print("All Data acquired")
@@ -437,4 +425,3 @@ def MLST_label_UMAP(filter, encoding, cluster_method, loci=[]):
 
 # MLST_label_UMAP(["LOW", "MODIFIER", "MEDIUM", "HIGH"], "binary", "kMeans", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
 
-plt.show()

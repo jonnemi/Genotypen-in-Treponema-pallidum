@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import dataProcess
 import umap
@@ -46,7 +48,7 @@ def adaUmap(queryTSV, db_name):
                         min_dist=0.0,
                         n_components=2,
                         random_state=42,
-                        verbose=True
+                        #verbose=True
                         )
     reducer1.fit(dataset["test"])
     only_query = reducer1.transform(dataset["test"])
@@ -62,7 +64,7 @@ def adaUmap(queryTSV, db_name):
                         min_dist=0.0,
                         n_components=2,
                         random_state=42,
-                        verbose=True
+                        #verbose=True
                         )
     reducer2.fit(dataset["train"])
     train = reducer2.transform(dataset["train"])
@@ -103,9 +105,9 @@ def adaUmap(queryTSV, db_name):
     plt.subplots_adjust(wspace=0.5)
     plt.tight_layout()
     fig.suptitle("UMAP Vergleich", y=0.98)
-    plt.show()
+    #plt.show()
 
-adaUmap("variantContentTable.tsv", "snps.db")
+#adaUmap("variantContentTable.tsv", "snps.db")
 
 
 def queryUmap(tsvFile, filter, default_enc, loci=list()):
