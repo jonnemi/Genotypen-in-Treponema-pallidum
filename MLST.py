@@ -46,7 +46,7 @@ def lociSNVdensity(loci_df):
 
 def querySNVdensity(loci_df):
     # read tsvFile containing query sequence SNPs
-    query = pd.read_csv("variantContentTable.tsv", sep='\t', header=1)
+    query = pd.read_csv("66-Proben-Datensatz.tsv", sep='\t', header=1)
     # create vector of SNPs, with field for each SNP site (reference_GenWidePos)
     sample_names = list(query.columns)
     sample_names.remove('Position')
@@ -239,5 +239,5 @@ def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
 
 #genome_record = SeqIO.read("NC_021490.2.gb", "genbank")
 #lociSNVdensity(getRefLoci(genome_record))
-#compareMLST("variantContentTable.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
-#compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["MODERATE", "HIGH"])
+#compareMLST("66-Proben-Datensatz.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
+#compareMLST("1508-Proben-Datensatz.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["MODERATE", "HIGH"])

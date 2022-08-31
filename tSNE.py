@@ -177,9 +177,9 @@ def compareTrainTest(queryTSV, db_name):
     plt.show()
 
 
-#tSNE("variantContentTable.tsv", "snps.db")
-#tuneTSNE("variantContentTable.tsv", "snps.db")
-#compareTrainTest("variantContentTable.tsv", "snps.db")
+#tSNE("66-Proben-Datensatz.tsv", "snps.db")
+#tuneTSNE("66-Proben-Datensatz.tsv", "snps.db")
+#compareTrainTest("66-Proben-Datensatz.tsv", "snps.db")
 
 
 
@@ -224,4 +224,4 @@ def querytSNE(tsvFile, filter, default_enc):
     ax.legend([],[], frameon=False)
     plt.show()
 
-#querytSNE("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "one-hot")
+#querytSNE("1508-Proben-Datensatz.tsv", ["MODERATE", "HIGH"], "one-hot")

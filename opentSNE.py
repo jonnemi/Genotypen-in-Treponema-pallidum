@@ -74,7 +74,7 @@ def adaTSNE(queryTSV, db_name):
     fig.suptitle("tSNE Vergleich", y=0.98)
     #plt.show()
 
-#adaTSNE("variantContentTable.tsv", "snps.db")
+#adaTSNE("66-Proben-Datensatz.tsv", "snps.db")
 
 def encodeNuc(nuc):
     enc = ["a", "c", "g", "t", ".", "-"]
@@ -282,9 +282,9 @@ class snpTSNE:
 
 #
 # test.embedQuery("PT_SIF0908.variants.tsv")
-# test.multembedTSNE("variantContentTable.tsv")
-# test.testDataTSNE("variantContentTable.tsv")
-#test.adaptTSNE("variantContentTable.tsv")
+# test.multembedTSNE("66-Proben-Datensatz.tsv")
+# test.testDataTSNE("66-Proben-Datensatz.tsv")
+#test.adaptTSNE("66-Proben-Datensatz.tsv")
 
 def MLSTtSNE(tsvFile):
     dataset = dataProcess.getLociDataset(tsvFile, "snps.db", [0, 0, 0, 0, 1],
@@ -324,7 +324,7 @@ def MLSTtSNE(tsvFile):
 
     plt.show()
 
-#MLSTtSNE("variantContentTable.tsv")
+#MLSTtSNE("66-Proben-Datensatz.tsv")
 
 
 def testDataTSNE(tsvFile, default_enc):
@@ -406,4 +406,4 @@ def testDataTSNE(tsvFile, default_enc):
         fig.tight_layout()
         plt.show()"""
 
-#testDataTSNE("variantContentTable.tsv", [0, 0, 0, 0, 1])
+#testDataTSNE("66-Proben-Datensatz.tsv", [0, 0, 0, 0, 1])

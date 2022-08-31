@@ -16,7 +16,7 @@ from scipy.spatial.distance import cdist
 
 def adaUmap(queryTSV, db_name):
     dataset = dataProcess.getADAdataset(queryTSV, db_name, "one-hot")
-    #dataset = dataProcess.getLociDataset("variantContentTable.tsv", "snps.db", "one-hot", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
+    #dataset = dataProcess.getLociDataset("66-Proben-Datensatz.tsv", "snps.db", "one-hot", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
     strains = dataProcess.assignStrains(dataset['test_seq_names'])
 
     """print(len(dataset['all_train_names']))
@@ -107,7 +107,7 @@ def adaUmap(queryTSV, db_name):
     fig.suptitle("UMAP Vergleich", y=0.98)
     #plt.show()
 
-#adaUmap("variantContentTable.tsv", "snps.db")
+#adaUmap("66-Proben-Datensatz.tsv", "snps.db")
 
 
 def queryUmap(tsvFile, filter, default_enc, loci=list()):
@@ -310,5 +310,5 @@ def queryUmap(tsvFile, filter, default_enc, loci=list()):
     plt.show()
 
 
-#queryUmap("Parr1509_CP004010_SNPSummary.tsv", ["MODERATE", "HIGH"], "binary")
+#queryUmap("1508-Proben-Datensatz.tsv", ["MODERATE", "HIGH"], "binary")
 

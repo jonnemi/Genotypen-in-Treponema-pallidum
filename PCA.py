@@ -29,4 +29,4 @@ def snpPCA(queryTSV, db_name):
     plt.show()
 
 
-snpPCA("variantContentTable.tsv", "snps.db")
+snpPCA("66-Proben-Datensatz.tsv", "snps.db")

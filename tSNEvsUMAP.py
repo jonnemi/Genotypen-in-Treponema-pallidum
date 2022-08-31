@@ -339,7 +339,7 @@ def freqGenotype(df, enc_2D, file):
 
 
 def compareToMLST(df, file):
-    mlst = MLST.compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"],
+    mlst = MLST.compareMLST("1508-Proben-Datensatz.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"],
                             True)
     MLST_df = pd.merge(df, mlst, left_on='label', right_on='Sample', how='inner')
 
@@ -377,7 +377,7 @@ def randIndex(dfs):
 
 
 ##### MLST ##########
-mlst = MLST.compareMLST("Parr1509_CP004010_SNPSummary.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["LOW", "MODIFIER", "MEDIUM", "HIGH"])
+mlst = MLST.compareMLST("1508-Proben-Datensatz.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["LOW", "MODIFIER", "MEDIUM", "HIGH"])
 MLST_df = pd.merge(MLST_df, mlst, left_on='label', right_on='Sample', how='inner')
 
 MLST_df = MLST_df.sort_values(by=['Allelic Profile'])
@@ -394,9 +394,9 @@ fig.suptitle("MLST UMAP mit Allel-Profilen ", y=0.98)
 
 
 def MLST_label_UMAP(filter, encoding, cluster_method, loci=[]):
-    umap = compare("Parr1509_CP004010_SNPSummary.tsv", filter, encoding, "none")
-    MLST_umap = compare("Parr1509_CP004010_SNPSummary.tsv", filter, encoding, cluster_method, loci)
-    mlst = MLST.compareMLST("Parr1509_CP004010_SNPSummary.tsv", loci, True, filter)
+    umap = compare("1508-Proben-Datensatz.tsv", filter, encoding, "none")
+    MLST_umap = compare("1508-Proben-Datensatz.tsv", filter, encoding, cluster_method, loci)
+    mlst = MLST.compareMLST("1508-Proben-Datensatz.tsv", loci, True, filter)
     print("All Data acquired")
 
     umap['MLST_cluster'] = MLST_umap['umap_cluster']

@@ -412,7 +412,7 @@ def getStrains(id_list):
     return strains
 
 # print(encDF(getSNPdf("snps.db"), [0, 0, 0, 0, 1], com_pos))
-# getLociDataset("variantContentTable.tsv", "snps.db", [0, 0, 0, 0, 1])
+# getLociDataset("66-Proben-Datensatz.tsv", "snps.db", [0, 0, 0, 0, 1])
 
 
 def getQueryDataset(tsvFile, filter, encoding):
@@ -558,8 +558,8 @@ def DBdf_toMega(df, MLST_positions, file="refDB_full.meg"):
 
     print("Mega file of SNP sequences was saved to " + file)
 
-#getLociDataset("variantContentTable.tsv", "snps.db", "string/none", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
-#getLociDataset("Parr1509_CP004010_SNPSummary.tsv", "snps.db", "string/none", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True)
+#getLociDataset("66-Proben-Datensatz.tsv", "snps.db", "string/none", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], False)
+#getLociDataset("1508-Proben-Datensatz.tsv", "snps.db", "string/none", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True)
 
 
 def groupMetadata(tsvFile):
