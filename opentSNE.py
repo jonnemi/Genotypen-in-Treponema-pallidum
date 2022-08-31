@@ -6,7 +6,6 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import pandas as pd
 import seaborn as sns
-
 from openTSNE import TSNE
 import dataProcess
 

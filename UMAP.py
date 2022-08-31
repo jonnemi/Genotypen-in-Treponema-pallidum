@@ -9,9 +9,7 @@ import umap
 import os
 import kMeans
 import dbscan
-from collections import Counter
 import ast
-from scipy.spatial.distance import cdist
 
 
 def adaUmap(queryTSV, db_name):

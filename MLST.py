@@ -1,9 +1,6 @@
 import pandas as pd
 import sqlite3
 import numpy as np
-from collections import Counter
-import ast
-import os
 import dataProcess
 
 
@@ -154,6 +151,8 @@ def MLST(SNP_vec, ordered_names, all_names, loci_list):
 
 
 def compareMLST(tsvQuery, loci_list, new_format, filter=[]):
+    if '23S rRNA' in loci_list:
+        loci_list.remove('23S rRNA')
     # get loci training and test data set
     data = dataProcess.getLociDataset(tsvQuery, "snps.db", "string/none", loci_list, new_format, filter)
     print("Dataset acquired")

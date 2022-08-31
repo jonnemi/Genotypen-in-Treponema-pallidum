@@ -4,7 +4,6 @@ import numpy as np
 import pandas as pd
 from Bio import SeqIO
 import ast
-from collections import Counter
 pd.options.mode.chained_assignment = None  # default='warn'
 
 

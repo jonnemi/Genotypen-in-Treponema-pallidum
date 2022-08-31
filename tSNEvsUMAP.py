@@ -30,7 +30,6 @@ def plotCompare(df, title, umap_titel, tsne_titel):
     sns.scatterplot(x='UMAP_1', y='UMAP_2', data=df, ax=ax[0], s=15, hue='umap_cluster',
                     palette=sns.color_palette("hls", df['umap_cluster'].nunique()))
     ax[0].set_title(umap_titel)
-    # ax[0].legend([], [], frameon=False)
     ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='UMAP Cluster',
                  ncol=legend_cols(df['umap_cluster']))
 
@@ -38,7 +37,6 @@ def plotCompare(df, title, umap_titel, tsne_titel):
                     palette=sns.color_palette("hls", df['tsne_cluster'].nunique()))
     ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='tSNE Cluster',
                  ncol=legend_cols(df['tsne_cluster']))
-    # ax[1].legend([], [], frameon=False)
     ax[1].set_title(tsne_titel)
     plt.subplots_adjust(wspace=0.5)
     plt.tight_layout()
@@ -46,28 +44,6 @@ def plotCompare(df, title, umap_titel, tsne_titel):
 
 
 def plotCompareEmbedding(df1, rep_umap, rep_tsne, title):
-    """fig, ax = plt.subplots(1, 2)
-    fig.subplots_adjust(top=0.8)
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=df1, ax=ax[0], s=5, hue='umap_cluster',
-                    palette=sns.color_palette("hls", df1['umap_cluster'].nunique()))
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=rep_umap, ax=ax[0], s=10,
-                    palette=sns.color_palette("hls", df1['umap_cluster'].nunique()), markers=['D'])
-    ax[0].set_title("UMAP")
-    # ax[0].legend([], [], frameon=False)
-    ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='UMAP Cluster',
-                 ncol=legend_cols(df1['umap_cluster']))
-
-    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=df1, ax=ax[1], s=5, hue='tsne_cluster',
-                    palette=sns.color_palette("hls", df1['tsne_cluster'].nunique()))
-    sns.scatterplot(x='tSNE_1', y='tSNE_2', data=rep_tsne, ax=ax[1], s=10,
-                    palette=sns.color_palette("hls", df1['tsne_cluster'].nunique()), markers=['D'])
-    ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='tSNE Cluster',
-                 ncol=legend_cols(df1['tsne_cluster']))
-    # ax[1].legend([], [], frameon=False)
-    ax[1].set_title("tSNE")
-    plt.subplots_adjust(wspace=0.5)
-    plt.tight_layout()
-    fig.suptitle(title, y=0.98)"""
     rep_umap['Style'] = "Cluster Vektor"
 
     fig, ax = plt.subplots(1)
@@ -76,7 +52,6 @@ def plotCompareEmbedding(df1, rep_umap, rep_tsne, title):
                     palette=sns.color_palette("hls", df1['umap_cluster'].nunique()))
     sns.scatterplot(x='UMAP_1', y='UMAP_2', data=rep_umap, ax=ax, s=15, color='black', markers=['X'], style='Style')
     ax.set_title(title)
-    # ax[0].legend([], [], frameon=False)
     ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='UMAP Cluster',
               ncol=legend_cols(df1['umap_cluster']))
 
@@ -122,8 +97,7 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
                         n_neighbors=30,
                         min_dist=0.0,
                         n_components=2,
-                        random_state=42,
-                        #verbose=True
+                        random_state=42
                         )
     transform = reducer.fit_transform(enc_2D)
 
@@ -138,7 +112,6 @@ def compare(tsvFile, filter, default_enc, clustering, loci=list()):
         metric="manhattan",
         n_jobs=8,
         random_state=3,
-        #verbose=True,
     ).fit(enc_2D)
 
     tsne_df = pd.DataFrame(
@@ -283,8 +256,6 @@ def clusterCenterGenotype(umap_df, k_Means, reducer, enc_2D):
         classes = pd.DataFrame(class_list, columns=['class'])
         classes['kMeans_count'] = classes['class'].map(sample_clustering['cluster'].value_counts())
         classes['check_count'] = classes['class'].map(sample_clustering['nearest_centroid'].value_counts())
-        classes = classes.fillna(0)
-        # print(classes)
 
         center_pos = np.where(inv_transformed_points[c] > 0.5)[0].tolist()
         print("Cluster center SNPS: " + str(center_pos))
@@ -344,8 +315,9 @@ def compareToMLST(df, file):
     MLST_df = pd.merge(df, mlst, left_on='label', right_on='Sample', how='inner')
 
     MLST_grouped = MLST_df.groupby(['umap_cluster'])['Allelic Profile']
+    print()
+    print("Allel-Profile der UMAP-Cluster:")
     print(MLST_grouped.describe())
-    print(df.groupby(['umap_cluster']).size().describe())
     MLST_grouped.describe().to_csv(file)
 
 def randIndex(dfs):
@@ -364,64 +336,8 @@ def randIndex(dfs):
             tsne_rand_table[o][i] = round(tsne_rand_index, 4)
             i += 1
         o += 1
-
+    print("ARI der UMAPs")
     print(umap_rand_table)
+    print()
+    print("ARI der tSNEs")
     print(tsne_rand_table)
-
-
-
-
-####################
-"""print("All Data acquired")
-##plotCompare(df, "test")
-
-
-##### MLST ##########
-mlst = MLST.compareMLST("1508-Proben-Datensatz.tsv", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"], True, ["LOW", "MODIFIER", "MEDIUM", "HIGH"])
-MLST_df = pd.merge(MLST_df, mlst, left_on='label', right_on='Sample', how='inner')
-
-MLST_df = MLST_df.sort_values(by=['Allelic Profile'])
-fig, ax = plt.subplots(1)
-fig.subplots_adjust(top=0.8)
-sns.scatterplot(x='UMAP_1', y='UMAP_2', data=MLST_df, ax=ax, s=5, hue='Allelic Profile',
-                palette=sns.color_palette("hls", MLST_df['Allelic Profile'].nunique()), hue_order=MLST_df['Allelic Profile'].unique().sort())
-ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='Allel-Profil',
-             ncol=legend_cols(MLST_df['Allelic Profile']))
-# ax[1].legend([], [], frameon=False)
-ax.set_title("MLST UMAP")
-plt.tight_layout()
-fig.suptitle("MLST UMAP mit Allel-Profilen ", y=0.98)
-
-
-def MLST_label_UMAP(filter, encoding, cluster_method, loci=[]):
-    umap = compare("1508-Proben-Datensatz.tsv", filter, encoding, "none")
-    MLST_umap = compare("1508-Proben-Datensatz.tsv", filter, encoding, cluster_method, loci)
-    mlst = MLST.compareMLST("1508-Proben-Datensatz.tsv", loci, True, filter)
-    print("All Data acquired")
-
-    umap['MLST_cluster'] = MLST_umap['umap_cluster']
-    plotCompare(umap, "test")
-
-
-    fig, ax = plt.subplots(1, 2)
-    fig.subplots_adjust(top=0.8)
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=umap, ax=ax[0], s=5, hue='MLST_cluster',
-                    palette=sns.color_palette("hls", umap['MLST_cluster'].nunique()))
-    ax[0].set_title("UMAP")
-    # ax[0].legend([], [], frameon=False)
-    ax[0].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='UMAP Cluster',
-                 ncol=legend_cols(umap['MLST_cluster']))
-
-    sns.scatterplot(x='UMAP_1', y='UMAP_2', data=MLST_umap, ax=ax[1], s=5, hue='umap_cluster',
-                    palette=sns.color_palette("hls", MLST_umap['umap_cluster'].nunique()))
-    ax[1].legend(bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0, title='UMAP Cluster',
-                 ncol=legend_cols(MLST_umap['umap_cluster']))
-    # ax[1].legend([], [], frameon=False)
-    ax[1].set_title("UMAP")
-    plt.subplots_adjust(wspace=0.5)
-    plt.tight_layout()
-    fig.suptitle("UMAP with MLST and MLST UMAP labels", y=0.98)"""
-
-
-# MLST_label_UMAP(["LOW", "MODIFIER", "MEDIUM", "HIGH"], "binary", "kMeans", ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"])
-

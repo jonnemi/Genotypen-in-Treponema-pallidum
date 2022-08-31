@@ -2,7 +2,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import seaborn as sns
-import numpy as np
 from kneed import KneeLocator
 
 def tSNE_KMeans(tSNE_tsv):

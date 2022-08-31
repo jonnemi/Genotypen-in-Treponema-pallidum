@@ -1,14 +1,16 @@
 import database
-import dataProcess
 import MLST
 import UMAP
 import opentSNE
 import tSNEvsUMAP
 from Bio import SeqIO
 import matplotlib.pyplot as plt
+from datetime import datetime
+startTime = datetime.now()
 
 
 if __name__ == '__main__':
+
     sep = "=" * 30
     sub_sep = "-" * 30
     MLST_loci = ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"]
@@ -22,7 +24,10 @@ if __name__ == '__main__':
     print("MLST des 66-Proben-Datensatzes:")
     MLST.compareMLST("66-Proben-Datensatz.tsv", MLST_loci, False)
     print(sub_sep)
-    print("MLST des 1508-Proben-Datensatzes:")
+    print("MLST des 1508-Proben-Datensatzes ohne Filtern nach SNP-Auswirkungen:")
+    MLST.compareMLST("1508-Proben-Datensatz.tsv", MLST_loci, True)
+    print(sep)
+    print("MLST des 1508-Proben-Datensatzes mit Filtern nach MODERATE und HIGH SNP-Auswirkungen:")
     MLST.compareMLST("1508-Proben-Datensatz.tsv", MLST_loci, True, ["MODERATE", "HIGH"])
     print(sep)
 
@@ -59,4 +64,6 @@ if __name__ == '__main__':
 
     print("Adjusted-Rand-Index der berechneten tSNEs und UMAPs:")
     tSNEvsUMAP.randIndex([df, filter_df, MLST_df])
-    plt.show()
+
+print("Laufzeit: " + str(datetime.now() - startTime))
+plt.show()
