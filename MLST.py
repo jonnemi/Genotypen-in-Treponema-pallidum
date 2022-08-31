@@ -3,9 +3,6 @@ import sqlite3
 import numpy as np
 import dataProcess
 
-
-
-
 def getRefLoci(genome_record):
     # Loop over the features
     data = []
