@@ -15,6 +15,9 @@ if __name__ == '__main__':
     sub_sep = "-" * 30
     MLST_loci = ["TPANIC_RS00695", "TPANIC_RS02695", "TPANIC_RS03500"]
 
+    # create reference genome database snps.db
+    database.loadDB()
+
     # reference genome
     genome_record = SeqIO.read("NC_021490.2.gb", "genbank")
 
@@ -65,5 +68,6 @@ if __name__ == '__main__':
     print("Adjusted-Rand-Index der berechneten tSNEs und UMAPs:")
     tSNEvsUMAP.randIndex([df, filter_df, MLST_df])
 
+print()
 print("Laufzeit: " + str(datetime.now() - startTime))
 plt.show()

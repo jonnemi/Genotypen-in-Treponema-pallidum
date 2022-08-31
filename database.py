@@ -3,6 +3,12 @@ import pandas
 import os
 import pandas as pd
 
+def loadDB():
+    if not os.path.isfile("snps.db"):
+        # creating database for Reference-genome SNPs...
+        print("Creating database for Reference-genome SNPs...")
+        createDB("snps.db", "paarweise_MAUVE_SNPs")
+        filterUnambiguous("snps.db")
 
 def getGaps(filename):
     directory = "pairwise_gaps"
@@ -33,7 +39,7 @@ def createDB(db_name, directory):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE snps")
+    #cursor.execute("DROP TABLE snps")
 
     sql_command = "CREATE TABLE IF NOT EXISTS snps ('SNP pattern' text, sequence_1_Contig text, sequence_1_PosInContg " \
                   "int, sequence_1_GenWidePos1 int, sequence_2_Contig text, sequence_2_PosInContg int, " \
@@ -81,14 +87,14 @@ def createDB(db_name, directory):
 
     conn.close()
 
-#createDB("snps.db", "snps")
+#createDB("snps.db", "paarweise_MAUVE_SNPs")
 
 def filterUnambiguous(from_db_name):
     # establish connection to sqlite database
     conn = sqlite3.connect(from_db_name)
     cursor = conn.cursor()
 
-    cursor.execute("DROP TABLE unambiguous")
+    #cursor.execute("DROP TABLE unambiguous")
 
     # create new table unambiguous
     sql_command = "CREATE TABLE IF NOT EXISTS unambiguous (SNP_pattern text, sequence_name text, " \
